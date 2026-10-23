@@ -7,7 +7,7 @@ export const SCHEMA_VERSION = 1;
 export const DATA_DIR = 'data';
 
 /**
- * Pitch facts confirmed against the real data (see CLAUDE.md and DATA.md).
+ * Pitch facts confirmed against the real data (see CLAUDE.md).
  * Event coordinates are normalised so every team attacks toward x = 120.
  */
 export const PITCH = {

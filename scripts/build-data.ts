@@ -5,7 +5,7 @@
  *
  * Raw downloads are cached (gzipped) in .cache/, so a re-run, or a run that was
  * interrupted, only fetches what is missing. Output goes to public/data and is
- * committed, so deploys never depend on the network. See DATA.md.
+ * committed, so deploys never depend on the network.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
