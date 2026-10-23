@@ -1,6 +1,6 @@
 .wordmark {
   display: inline-block;
-  font-size: var(--step-5);
+  font-size: var(--wordmark-size, var(--step-5));
   font-weight: var(--weight-black);
   line-height: var(--leading-display);
   letter-spacing: -0.02em;
@@ -17,14 +17,14 @@
 
 .wordmark-halo {
   fill: none;
-  stroke: var(--goal);
+  stroke: var(--wordmark-accent, var(--goal));
   stroke-width: 1.5;
 }
 
 .wordmark-disc {
-  fill: var(--goal);
+  fill: var(--wordmark-accent, var(--goal));
 }
 
 .wordmark-core {
-  fill: var(--paper);
+  fill: var(--wordmark-core, var(--paper));
 }

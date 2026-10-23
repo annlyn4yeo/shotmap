@@ -1,0 +1,247 @@
+/*
+ * Shot marks, the layer they sit in, and the outcome chips.
+ * Shape carries the outcome, area carries xG, colour is a third channel.
+ * Strokes are in screen pixels (non-scaling) so marks stay crisp at any pitch size.
+ */
+.shot {
+  --c: var(--ink);
+  cursor: pointer;
+  transition: opacity var(--dur-fast) ease;
+  outline: none;
+  fill: color-mix(in srgb, var(--c) 14%, transparent);
+  stroke: var(--c);
+  stroke-width: 1.5px;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+}
+
+.shot--goal {
+  --c: var(--goal);
+}
+.shot--saved {
+  --c: var(--saved);
+}
+.shot--off {
+  --c: var(--off);
+}
+.shot--blocked {
+  --c: var(--blocked);
+}
+.shot--post {
+  --c: var(--post);
+}
+
+/* Goal: filled with the even-odd rule, which cuts the gap and the centre hole. */
+.shot--goal {
+  fill: var(--c);
+  fill-rule: evenodd;
+  stroke: none;
+}
+
+.shot--blocked {
+  fill: var(--c);
+  stroke: none;
+}
+
+.shot--off {
+  fill: none;
+  stroke-width: 2.25px;
+}
+
+.shot--post {
+  stroke-width: 2.25px;
+}
+
+.shot--saved {
+  fill: color-mix(in srgb, var(--c) 10%, transparent);
+  stroke-width: 1.75px;
+}
+
+.shot-layer {
+  display: block;
+  overflow: visible;
+}
+
+/* Focus mode: while a shot is hovered, focused or selected, the rest step back. */
+.shot-layer[data-focus='true'] .shot:not([data-active='true']) {
+  opacity: 0.28;
+}
+
+.traj {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.traj-end {
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+/* Focus and selection: a ring drawn once, beside the shot it belongs to. */
+.ring {
+  fill: none;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.ring[data-kind='active'] {
+  stroke: var(--focus);
+}
+.ring[data-kind='selected'] {
+  stroke: var(--ink);
+}
+
+/*
+ * Intro: shots plot in by match minute. Transform and opacity only. It runs
+ * only while the map has data-intro, so toggling a filter never replays it.
+ */
+.ping {
+  fill: none;
+  stroke: var(--goal);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map[data-intro='true'] .shot {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: plot var(--dur-base) var(--ease-out) backwards;
+    animation-delay: var(--d);
+  }
+
+  .map[data-intro='true'] .shot--goal {
+    animation: goal-in 640ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    animation-delay: var(--d);
+  }
+
+  .map[data-intro='true'] .ping {
+    animation: ping 900ms var(--ease-out) backwards;
+    animation-delay: calc(var(--d) + 260ms);
+  }
+}
+
+@keyframes plot {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes goal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+@keyframes ping {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* Outcome chips: legend and filter in one */
+.legend {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.legend-note {
+  max-width: none;
+  text-align: center;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0 0.625rem 0 var(--space-2);
+  background: var(--paper);
+  border: var(--hair) solid var(--ink);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-fast) ease;
+}
+
+.chip[aria-pressed='false'] {
+  border-style: dashed;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  font-weight: var(--weight-medium);
+}
+
+.chip[aria-pressed='false'] .chip-mark {
+  opacity: 0.45;
+}
+
+.chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.chip:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.chip-mark {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.chip-mark .shot {
+  cursor: inherit;
+}
+
+.chip-count {
+  color: var(--ink-3);
+  font-weight: var(--weight-medium);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip[aria-pressed='true']:hover:not(:disabled) {
+    background: var(--paper-2);
+  }
+}
+
+@media (min-width: 52rem) {
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2) var(--space-5);
+  }
+}
