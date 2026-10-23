@@ -1,0 +1,92 @@
+/* Loading, error and empty: the same paper, rules and type as the real view. */
+.state {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 34rem;
+  margin: var(--space-7) auto;
+  padding-top: var(--space-4);
+  border-top: var(--rule) solid var(--ink);
+}
+
+.state-title {
+  font-size: var(--step-3);
+  font-weight: var(--weight-black);
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.state-button {
+  appearance: none;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: var(--rule) solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.state-button[data-primary] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.state-button:active {
+  transform: scale(0.97);
+}
+
+/* A map with nothing on it */
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  text-align: center;
+}
+
+.empty-title {
+  max-width: 18rem;
+  font-weight: var(--weight-bold);
+}
+
+/* Loading: the real panels with quiet bars where the numbers go */
+.skeleton-strip {
+  align-items: end;
+}
+
+.skeleton-bar {
+  height: 3rem;
+  background: var(--paper-3);
+}
+
+.skeleton-toolbar {
+  display: block;
+  height: 2.75rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton .skeleton-bar,
+  .skeleton .map {
+    animation: quiet 1.4s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes quiet {
+  from {
+    opacity: 0.55;
+  }
+}
