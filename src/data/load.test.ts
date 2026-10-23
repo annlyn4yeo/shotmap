@@ -123,3 +123,21 @@ describe('prefetch', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('seed', () => {
+  it('serves the inlined index and match without a request', async () => {
+    const match = { meta: { id: 7 } };
+    vi.stubGlobal('document', {
+      getElementById: () => ({ textContent: JSON.stringify({ index, match }) }),
+    });
+    const { seedFromDocument, loadIndex, loadMatch, readIndex, readMatch } = await load();
+
+    seedFromDocument();
+
+    expect(readIndex()).toEqual(index);
+    expect(readMatch(7)).toEqual(match);
+    await expect(loadIndex()).resolves.toEqual(index);
+    await expect(loadMatch(7)).resolves.toEqual(match);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
