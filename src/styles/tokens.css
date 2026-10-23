@@ -1,0 +1,107 @@
+/*
+ * Design tokens. One set, two schemes: every colour is light-dark(day, night),
+ * resolved by color-scheme (prefers-color-scheme, or <html data-theme> to force).
+ * Contrast is enforced by `pnpm contrast`; see DESIGN.md before changing values.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces: vellum by day, night chart by night */
+  --paper: light-dark(#ecefea, #0b1721);
+  --paper-2: light-dark(#e1e6df, #11202c);
+  --paper-3: light-dark(#d3dbd2, #1a2e3d);
+
+  /* Ink */
+  --ink: light-dark(#101c26, #e8eee7);
+  --ink-2: light-dark(#2f4352, #bccad2);
+  --ink-3: light-dark(#485d6d, #8ea2ae);
+
+  /* Lines. --line is for anything that must be seen (>= 3:1); the rest is decoration. */
+  --line: light-dark(#5a7080, #6f8a9b);
+  --line-2: light-dark(#a5b4b9, #3a5364);
+  --line-3: light-dark(#c9d2d1, #22394a);
+
+  /* Accent: survey vermilion. Also the goal colour. */
+  --accent: light-dark(#bf3a12, #ff6a3c);
+  --accent-ink: light-dark(#fff8f2, #0b1721);
+  --accent-wash: color-mix(in srgb, var(--accent) 12%, var(--paper));
+
+  /* Shot outcomes. Colour is the second channel; shape is the first (see DESIGN.md). */
+  --goal: var(--accent);
+  --saved: light-dark(#1b5e92, #62b2f0);
+  --off: light-dark(#52687a, #94a9b7);
+  --blocked: light-dark(#85571b, #e0a04a);
+  --post: light-dark(#1d6a52, #4dc79b);
+
+  --focus: var(--accent);
+
+  /* Type families (fallbacks are metric-matched in fonts.css) */
+  --font-sans: 'Archivo', 'Archivo Fallback', Arial, sans-serif;
+  --font-mono: 'Azeret Mono', 'Azeret Mono Fallback', 'Courier New', monospace;
+
+  /* Fluid scale, 375px to 1280px */
+  --step--2: clamp(0.75rem, 0.7241rem + 0.1105vw, 0.8125rem);
+  --step--1: clamp(0.875rem, 0.8491rem + 0.1105vw, 0.9375rem);
+  --step-0: clamp(1rem, 0.9482rem + 0.221vw, 1.125rem);
+  --step-1: clamp(1.25rem, 1.1464rem + 0.442vw, 1.5rem);
+  --step-2: clamp(1.5625rem, 1.3812rem + 0.7735vw, 2rem);
+  --step-3: clamp(1.9375rem, 1.6267rem + 1.326vw, 2.6875rem);
+  --step-4: clamp(2.4375rem, 1.9713rem + 1.989vw, 3.5625rem);
+  --step-5: clamp(3.0625rem, 2.2597rem + 3.4254vw, 5rem);
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 650;
+  --weight-bold: 750;
+  --weight-black: 800;
+
+  --track-tight: -0.025em;
+  --track-normal: 0;
+  --track-caps: 0.14em;
+
+  --leading-display: 0.92;
+  --leading-heading: 1.12;
+  --leading-body: 1.5;
+
+  /* Space: 4px base */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+  --gutter: clamp(1rem, 0.6rem + 1.7vw, 2rem);
+  --measure: 62ch;
+  --page-max: 72rem;
+
+  /* Shape: surveyed, not rounded. Circles are reserved for shot marks. */
+  --radius: 0;
+  --radius-pill: 999px;
+  --hair: 1px;
+  --rule: 1.5px;
+
+  /* Motion */
+  --dur-press: 120ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 480ms;
+  --dur-draw: 900ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --stagger: 18ms;
+
+  /* Layers: only systemic ones */
+  --layer-sticky: 10;
+  --layer-overlay: 20;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}

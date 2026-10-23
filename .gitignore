@@ -4,3 +4,4 @@ dist
 lh-report.*
 *.log
 CLAUDE.md
+.cache

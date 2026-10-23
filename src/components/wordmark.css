@@ -1,0 +1,30 @@
+.wordmark {
+  display: inline-block;
+  font-size: var(--step-5);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-display);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.wordmark-o {
+  display: inline-block;
+  width: 0.76em;
+  height: 0.76em;
+  margin-inline: 0.035em;
+  vertical-align: -0.03em;
+}
+
+.wordmark-halo {
+  fill: none;
+  stroke: var(--goal);
+  stroke-width: 1.5;
+}
+
+.wordmark-disc {
+  fill: var(--goal);
+}
+
+.wordmark-core {
+  fill: var(--paper);
+}
