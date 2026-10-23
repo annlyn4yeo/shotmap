@@ -1,4 +1,5 @@
-import { defineConfig, type Plugin } from 'vite';
+import type { Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
 
 /** Preload only the critical font: the Latin Archivo file used by the first paint. */
@@ -36,5 +37,9 @@ export default defineConfig({
     target: 'es2022',
     cssCodeSplit: true,
     assetsInlineLimit: 0,
+  },
+  test: {
+    include: ['src/**/*.test.ts'],
+    environment: 'node',
   },
 });

@@ -27,6 +27,11 @@ export default tseslint.config(
     },
   },
   {
+    // These check untyped JSON at runtime, so guards on already-narrow types are the point.
+    files: ['src/data/data.test.ts'],
+    rules: { '@typescript-eslint/no-unnecessary-condition': 'off' },
+  },
+  {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
   },
