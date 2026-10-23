@@ -1,0 +1,129 @@
+.shotmap {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* One panel per team: its name, its numbers, then the cropped pitch */
+.panels {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.panel {
+  container: panel / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-name {
+  font-size: var(--step-2);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-heading);
+}
+
+/*
+ * The map. .map-frame is the sheet: it has the pitch's exact aspect ratio, and
+ * the double neatline is drawn just outside it so it never changes that ratio.
+ * On a phone it is full width; on a wide screen it is as big as the room left
+ * in its panel allows (see the container query below).
+ */
+.stage {
+  min-width: 0;
+  min-height: 0;
+}
+
+.map-frame {
+  position: relative;
+  /* Full width, but never taller than the window: a landscape phone keeps the whole map in view. */
+  width: min(100% - 14px, (100dvh - 7rem) * var(--ratio));
+  margin: 7px auto;
+  aspect-ratio: var(--ratio);
+}
+
+.map-frame::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: var(--rule) solid var(--ink);
+  outline: var(--hair) solid var(--ink);
+  outline-offset: 3px;
+  pointer-events: none;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+  contain: layout paint;
+}
+
+.map > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-note {
+  max-width: none;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+/* Wide: everything fits the window, and the maps take whatever height is left. */
+@media (min-width: 52rem) {
+  .shotmap {
+    height: 100%;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--space-7);
+    min-height: 0;
+  }
+
+  .panels[data-count='1'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* With both teams side by side, the scoreboard above already names them. */
+  .panels[data-count='2'] .panel-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .stage {
+    flex: 1;
+    container-type: size;
+  }
+
+  .map-frame {
+    width: min(100cqw - 14px, (100cqh - 14px) * var(--ratio));
+    margin-inline: 7px;
+  }
+
+  .panels[data-count='1'] .map-frame {
+    margin-inline: auto;
+  }
+}
+
+/* The panels morph when the team view changes (see lib/transition.ts). */
+::view-transition-group(*) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 140ms;
+}
