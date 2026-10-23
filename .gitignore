@@ -1,0 +1,6 @@
+node_modules
+dist
+.lighthouseci
+lh-report.*
+*.log
+CLAUDE.md
