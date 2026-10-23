@@ -1,12 +1,22 @@
 .pitch {
+  display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   font-family: var(--font-mono);
   overflow: visible;
 }
 
 .pitch-surface {
   fill: var(--paper-2);
+}
+
+.pitch-fade-from {
+  stop-color: var(--paper-2);
+  stop-opacity: 0;
+}
+
+.pitch-fade-to {
+  stop-color: var(--paper-2);
 }
 
 .pitch :is(path, circle, rect) {
@@ -16,7 +26,7 @@
 .pitch-line {
   fill: none;
   stroke: var(--line);
-  stroke-width: 1.25px;
+  stroke-width: 1px;
 }
 
 .pitch-spot {
@@ -62,11 +72,10 @@
   stroke-linejoin: round;
 }
 
-/* The contours draw themselves in once, like a plotter pass. */
+/* The contours fade in once, like a plotter pass. */
 @media (prefers-reduced-motion: no-preference) {
   .pitch-isoline {
     animation: contour var(--dur-draw) var(--ease-out) backwards;
-    animation-delay: calc(var(--k, 0) * 90ms);
   }
 }
 

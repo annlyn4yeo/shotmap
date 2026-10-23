@@ -1,3 +1,4 @@
+/** The five marks a shot can be drawn as. StatsBomb's finer outcomes are grouped into these. */
 export type Outcome = 'goal' | 'saved' | 'off' | 'blocked' | 'post';
 
 export const OUTCOMES: readonly Outcome[] = ['goal', 'saved', 'off', 'blocked', 'post'];
@@ -10,30 +11,18 @@ export const OUTCOME_LABEL: Record<Outcome, string> = {
   post: 'Post',
 };
 
-/** What each outcome looks like, so the legend can say it in words too. */
-export const OUTCOME_SHAPE: Record<Outcome, string> = {
-  goal: 'Solid disc, ring, centre dot',
-  saved: 'Hatched ring',
-  off: 'Cross',
-  blocked: 'Solid square',
-  post: 'Open triangle',
-};
-
-/** Attacking half, goal at the top. Units are StatsBomb yards. */
-export const HALF = { width: 80, depth: 60 } as const;
+/** Radius is proportional to sqrt(xG), so a mark's area is proportional to xG. */
+const AREA_K = 3.6;
+/** Smallest mark radius on screen, in CSS pixels, so a 0.01 xG shot stays visible. */
+const MIN_RADIUS_PX = 7;
 
 /**
- * StatsBomb pitch: 120 x 80, attacking left to right, origin top-left.
- * Rotate it so the attack runs up the screen and the goal sits on the top edge.
+ * Mark radius in pitch units. `unitPx` is how many CSS pixels one pitch unit is
+ * on screen, which keeps the minimum a fixed size at every pitch scale.
  */
-export function project(x: number, y: number): { x: number; y: number } {
-  return { x: y, y: 120 - x };
-}
-
-/** Mark radius in pitch units. Area grows with xG, with a floor so 0.01 stays visible. */
-export function markRadius(xg: number): number {
+export function markRadius(xg: number, unitPx: number): number {
   const clamped = Math.min(1, Math.max(0, xg));
-  return 1.1 + 4.4 * Math.sqrt(clamped);
+  return Math.max(AREA_K * Math.sqrt(clamped), MIN_RADIUS_PX / unitPx);
 }
 
 /** Draw order: big marks first, small on top, goals last of all. */
