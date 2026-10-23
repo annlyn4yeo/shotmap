@@ -1,0 +1,44 @@
+.shell {
+  display: grid;
+  align-content: end;
+  gap: var(--space-4);
+  min-height: 78dvh;
+  padding: var(--space-8) var(--gutter) var(--space-7);
+  max-width: var(--page-max);
+  margin-inline: auto;
+}
+
+.shell h1 {
+  font-size: inherit;
+  letter-spacing: normal;
+}
+
+.shell-tagline {
+  font-size: var(--step-2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-tight);
+}
+
+.shell-note {
+  color: var(--ink-2);
+}
+
+.credit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding: var(--space-5) var(--gutter) var(--space-6);
+  border-top: var(--hair) solid var(--line);
+  font-size: var(--step--1);
+  color: var(--ink-2);
+}
+
+/* Placeholder for the StatsBomb logo, required by their open-data terms. */
+.credit-logo {
+  flex: none;
+  width: 7.5rem;
+  height: 2rem;
+  border: var(--hair) dashed var(--line);
+}

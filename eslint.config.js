@@ -9,6 +9,19 @@ export default tseslint.config(
   ...tseslint.configs.strictTypeChecked,
   prettier,
   {
+    rules: {
+      // SVG geometry is built from numbers in template strings.
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true },
+      ],
+      '@typescript-eslint/no-confusing-void-expression': [
+        'error',
+        { ignoreArrowShorthand: true },
+      ],
+    },
+  },
+  {
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
