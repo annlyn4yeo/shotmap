@@ -1,34 +1,20 @@
-import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import * as chromeLauncher from 'chrome-launcher';
 import lighthouse from 'lighthouse';
+import { preview } from 'vite';
 
-const PORT = 4173;
-const url = `http://localhost:${PORT}/`;
-const server = spawn(
-  'pnpm',
-  ['exec', 'vite', 'preview', '--port', String(PORT), '--strictPort'],
-  {
-    stdio: 'ignore',
-    shell: true,
-  },
-);
-
-const ready = async () => {
-  for (let i = 0; i < 50; i++) {
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch {
-      /* server not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  throw new Error('preview server did not start (run `pnpm build` first)');
-};
+// The preview server runs in this process, so there is no child to leak (on Windows a
+// killed shell left `vite preview` running, and a later run quietly measured that old
+// server). If port 4173 is taken, Vite takes the next free one and we use its URL.
+const server = await preview({
+  logLevel: 'error',
+  preview: { port: 4173, strictPort: false, open: false },
+});
 
 let chrome;
 try {
-  await ready();
+  const url = server.resolvedUrls?.local[0];
+  if (!url) throw new Error('preview server has no URL (run `pnpm build` first)');
   chrome = await chromeLauncher.launch({
     chromeFlags: ['--headless=new', '--no-sandbox'],
   });
@@ -51,8 +37,8 @@ try {
   ]) {
     console.log(`${audits[id]?.title ?? id}: ${audits[id]?.displayValue}`);
   }
-  console.log('Report: lh-report.html');
+  console.log(`Report: lh-report.html (${url})`);
 } finally {
   await chrome?.kill();
-  server.kill();
+  await server.close();
 }
