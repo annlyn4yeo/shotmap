@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { dataFiles, digestOf, goldenDir, hashJson, loadManifest } from '../../scripts/golden';
+import {
+  dataFiles,
+  digestOf,
+  goldenDir,
+  hashJson,
+  loadManifest,
+} from '../../scripts/golden';
 
 // The golden master is permanent (docs/golden/manifest.json). While the static data
 // exists, it must still hash to exactly what the app shipped before the API.
