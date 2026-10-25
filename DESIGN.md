@@ -182,12 +182,12 @@ Motion is the pen plotting the sheet, not decoration. Everything is CSS (`transf
 
 ### Weights, measured
 
-| Asset                             | Size        | Budget |
-| --------------------------------- | ----------- | ------ |
-| JS                                | 5.2 KB gzip | 90 KB  |
-| CSS                               | 2.2 KB gzip | 20 KB  |
-| `archivo-latin.woff2` (preloaded) | 27.9 KB     | 60 KB  |
-| `archivo-latin-ext.woff2` (lazy)  | 14.0 KB     | 60 KB  |
-| `azeret-mono-latin.woff2`         | 15.4 KB     | 60 KB  |
+| Asset                             | Size            | Budget |
+| --------------------------------- | --------------- | ------ |
+| JS                                | 16.75 KiB gzip  | 90 KB  |
+| CSS                               | 5.79 KiB gzip   | 20 KB  |
+| `archivo-latin.woff2` (preloaded) | 27.3 KiB        | 60 KB  |
+| `archivo-latin-ext.woff2` (lazy)  | 13.7 KiB        | 60 KB  |
+| `azeret-mono-latin.woff2`         | 15.0 KiB        | 60 KB  |
 
-Lighthouse mobile on the production shell: Performance 100, Accessibility 100, LCP 1.2 s, CLS 0, TBT 0.
+KiB is 1024 bytes, as printed by `pnpm size`. Lighthouse mobile on the built app (three runs): Performance 100, Accessibility 100, Best Practices 100, SEO 100, LCP 1.5 s, CLS 0, TBT 50 to 60 ms. INP, measured by `pnpm inp` under mobile throttling, is a median of 192 ms against the 200 ms budget.
