@@ -1,0 +1,21 @@
+{
+  "name": "shotmap",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "dev": "pnpm --filter @shotmap/web dev",
+    "build": "pnpm --filter @shotmap/web build",
+    "preview": "pnpm --filter @shotmap/web preview",
+    "typecheck": "pnpm --filter @shotmap/web typecheck",
+    "lint": "pnpm --filter @shotmap/web lint",
+    "format": "pnpm --filter @shotmap/web format",
+    "test": "pnpm --filter @shotmap/web test",
+    "size": "pnpm --filter @shotmap/web size",
+    "lh": "pnpm --filter @shotmap/web lh",
+    "inp": "pnpm --filter @shotmap/web inp",
+    "contrast": "pnpm --filter @shotmap/web contrast",
+    "fonts": "pnpm --filter @shotmap/web fonts",
+    "data": "pnpm --filter @shotmap/web data"
+  }
+}
