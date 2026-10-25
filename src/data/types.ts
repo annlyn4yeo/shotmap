@@ -71,9 +71,7 @@ export interface ShotColumns {
   tech: number[];
 }
 
-export type ShotColumn = keyof ShotColumns;
-
-export interface TeamMeta {
+interface TeamMeta {
   id: number;
   name: string;
   /** Final score before any shootout. */
@@ -124,7 +122,7 @@ export type MatchRow = [
   awayPens: number | null,
 ];
 
-export interface IndexSeason {
+interface IndexSeason {
   id: number;
   name: string;
   /** Chronological. */
