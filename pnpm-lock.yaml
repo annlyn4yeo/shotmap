@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  apps/web:
     dependencies:
       preact:
         specifier: ^11.0.1
@@ -48,6 +50,9 @@ importers:
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
+      puppeteer-core:
+        specifier: 25.16.0
+        version: 25.16.0
       subset-font:
         specifier: ^2.9.0
         version: 2.9.0
