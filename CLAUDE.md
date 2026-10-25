@@ -10,6 +10,10 @@ Shotmap is a design-led, mobile-first web app that visualizes football (soccer) 
 
 Weekend portfolio project: small in scope, exceptional in craft. Static output only: no backend, no SSR.
 
+## Repository layout
+
+A pnpm workspace. The app is `apps/web` (package `@shotmap/web`). Every path in this file and in `DESIGN.md` (`src/`, `public/`, `scripts/`, `.cache/`) is relative to `apps/web`, except `docs/` and `.github/`, which are at the repo root. Run commands from the repo root: the root `package.json` forwards them to the web package. `MIGRATION.md` (the plan for the move to an edge API) and `docs/CLEANUP.md` are kept out of git by the `*.md` rule in `.gitignore`; `CLAUDE.md` and `DESIGN.md` are the two exceptions.
+
 ## Stack
 
 Vite + TypeScript (strict) + Preact. pnpm. ESLint (typescript-eslint strict, type-checked) + Prettier.
@@ -24,6 +28,8 @@ The art direction is **Survey Sheet** (cartography: vellum paper, one vermilion 
 The browser only ever loads the generated `public/data/*.json` (via `src/data/load.ts`, types in `src/data/types.ts`), never raw StatsBomb files. Regenerate with `pnpm data` (cached in `.cache/`, git-ignored); `pnpm test` validates the output. Competitions are listed in `scripts/data.config.ts` and resolved by name.
 
 Coordinates, confirmed against the real data (not assumed): pitch 120 x 80 yards; **every team attacks toward x = 120** (StatsBomb flips per team); **y runs top-to-bottom** (attacker's right is larger y: Right Wing mean y 59.1, Left Wing 20.1); **posts at y = 36 and y = 44**; goals end at x 119.9 to 120, y 35.8 to 43.9, height under 2.5. Shot x reaches 120.1 in the data, so keep a small tolerance. Shot columns store StatsBomb's own enum ids; the legend is in `index.json`. Penalty shootouts (period 5) live in a separate `shootout` array, own goals are not shots (score = shot goals + own goals, verified for all 149 matches).
+
+`public/data` is generated and excluded from Prettier (formatting it added 47% to its raw size). `docs/golden/manifest.json` holds the SHA-256 of the canonical JSON (sorted keys, minified) of each of the 150 files, and `docs/golden/final-3869685.json` is the 2022 final as a fixture. Both are permanent: `pnpm test` checks them, and the API must reproduce the digests. `scripts/golden.ts` checks or (once) writes the manifest.
 
 ## State and navigation
 
@@ -60,6 +66,7 @@ The footer must say the data is by StatsBomb and show their logo, per their open
 ## Workflow
 
 - Small commits with conventional messages (`feat:`, `fix:`, `chore:`, ...).
+- CI (`.github/workflows/ci.yml`) runs on every pull request: frozen-lockfile install, typecheck, lint, test, contrast, build and size. `pnpm size` is a hard gate: it fails if the initial JS is over 90 KB, the initial CSS over 20 KB or a font over 60 KB (gzip). Lighthouse is not in CI yet.
 - Before finishing any task run `pnpm typecheck`, `pnpm lint`, `pnpm contrast` (if tokens changed) and `pnpm build`, and report gzip sizes of JS, CSS and fonts (`pnpm size`).
 
 ## Commands
@@ -72,11 +79,25 @@ The footer must say the data is by StatsBomb and show their logo, per their open
 | `pnpm typecheck` | `tsc --noEmit`                                                               |
 | `pnpm lint`      | ESLint                                                                       |
 | `pnpm format`    | Prettier write                                                               |
-| `pnpm size`      | Build, then print raw + gzip size of every emitted asset                     |
+| `pnpm size`      | Build, print raw + gzip size of every asset, fail on a budget miss           |
+| `pnpm inp`       | INP on the match page under mobile throttling; needs a prior `pnpm build`    |
 | `pnpm lh`        | Lighthouse (mobile defaults) against `vite preview`; writes `lh-report.html` |
 | `pnpm data`      | Build `public/data` from StatsBomb open data; fails if over budget           |
 | `pnpm test`      | Vitest: data schema, the final's score, the loader                           |
 | `pnpm contrast`  | WCAG contrast check of every token pair; fails on a miss                     |
 | `pnpm fonts`     | Re-subset the self-hosted fonts and print fallback metrics                   |
 
-`pnpm lh` needs Chrome/Chromium installed and a prior `pnpm build`; it starts the preview server itself.
+`pnpm lh` and `pnpm inp` need Chrome/Chromium installed and a prior `pnpm build`; they start the preview server themselves (`pnpm lh` takes the next free port if 4173 is busy).
+
+## Deploying (Cloudflare Pages)
+
+Nothing is deployed yet. Ask before creating a preview deploy. These are set in the Pages dashboard (the repo cannot set them):
+
+| Setting                | Value                                          |
+| ---------------------- | ---------------------------------------------- |
+| Root directory         | `/` (the repo root)                            |
+| Build command          | `pnpm --filter @shotmap/web build`             |
+| Build output directory | `apps/web/dist`                                |
+| Environment variables  | `NODE_VERSION=24.12.0`, `PNPM_VERSION=10.29.3` |
+
+Pages installs dependencies itself from the lockfile. The build command runs `tsc --noEmit && vite build`, and the output holds `index.html`, `assets/`, `data/`, `favicon.svg` and `robots.txt`. Per Cloudflare's docs, the v3 build image defaults to Node 22.16.0 and pnpm 10.11.1, takes versions from `NODE_VERSION` and `PNPM_VERSION` (it does not read them from the lockfile), and supports monorepos from build system v2. Unverified: whether that image offers Node 24.12.0; if the first build fails on the Node version, try 22.16.0.
