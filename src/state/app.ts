@@ -5,7 +5,7 @@ import { createStore } from '../lib/store';
 import { DEFAULT_ROUTE, formatHash, parseHash, type Route } from '../lib/route';
 import { withTransition } from '../lib/transition';
 
-export interface MatchState {
+interface MatchState {
   id: number;
   status: 'loading' | 'ready' | 'error';
   data: MatchFile | null;
