@@ -1,0 +1,117 @@
+/* Shot details: a bottom sheet on a phone, a popover beside the mark from 52rem */
+.card {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: var(--layer-overlay);
+  padding: var(--space-4) var(--gutter) calc(var(--space-4) + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-top: var(--rule) solid var(--ink);
+}
+
+.card-close {
+  appearance: none;
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.card-close svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5px;
+}
+
+.card-title {
+  padding-right: 2.5rem;
+  font-size: var(--step-1);
+  line-height: 1.15;
+}
+
+.card-team {
+  margin-top: var(--space-1);
+  color: var(--ink-2);
+  font-size: var(--step--1);
+}
+
+.card-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3) var(--space-4);
+  margin: var(--space-4) 0 0;
+}
+
+.card-facts dt {
+  margin-bottom: 2px;
+}
+
+.card-facts dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  font-size: var(--step--1);
+}
+
+.card-wide {
+  grid-column: 1 / -1;
+}
+
+.card[data-outcome='goal'] .card-outcome {
+  color: var(--accent);
+  font-size: var(--step-0);
+  font-weight: var(--weight-black);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    animation: sheet-in 320ms var(--ease-drawer);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (min-width: 52rem) {
+  .card {
+    position: absolute;
+    inset: auto;
+    left: var(--ax);
+    top: min(max(var(--ay), 7rem), calc(100% - 7rem));
+    width: 15.5rem;
+    translate: 14px -50%;
+    padding: var(--space-4);
+    border: var(--rule) solid var(--ink);
+  }
+
+  .card[data-side='left'] {
+    translate: calc(-100% - 14px) -50%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card {
+      animation: pop-in var(--dur-fast) var(--ease-out);
+    }
+  }
+
+  .card-title {
+    font-size: var(--step-0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
