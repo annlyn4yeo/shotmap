@@ -5,6 +5,4 @@ dist
 lh-report.*
 *.log
 *.md
-!CLAUDE.md
-!DESIGN.md
 .cache
