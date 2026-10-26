@@ -1,0 +1,35 @@
+{
+  // The read-only /v1 API: Hono on a Worker, D1 for the data (docs/adr/0001, 0007).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shotmap-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+
+  // `wrangler dev` runs this binding against a local D1 (load it with `pnpm --filter @shotmap/api load`).
+  // The ids below are placeholders until `wrangler d1 create` has been run for each environment.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "shotmap-dev", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
+
+  // The origin allowed to read the API from a browser when it is NOT served on the same origin
+  // (the workers.dev fallback of decision Q2). Leave unset when /v1/* is routed on the web domain.
+  "vars": { "WEB_ORIGIN": "" },
+
+  "env": {
+    "staging": {
+      "name": "shotmap-api-staging",
+      "d1_databases": [
+        { "binding": "DB", "database_name": "shotmap-staging", "database_id": "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create" }
+      ]
+      // With a domain on Cloudflare (decision Q2, the default), route /v1/* on it so it is same-origin:
+      // "routes": [{ "pattern": "staging.example.com/v1/*", "zone_name": "example.com" }]
+    },
+    "production": {
+      "name": "shotmap-api",
+      "d1_databases": [
+        { "binding": "DB", "database_name": "shotmap", "database_id": "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create" }
+      ]
+      // "routes": [{ "pattern": "example.com/v1/*", "zone_name": "example.com" }]
+    }
+  }
+}
