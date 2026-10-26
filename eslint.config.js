@@ -3,8 +3,10 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
+// One config for the whole workspace. `projectService` finds the nearest tsconfig.json
+// of each file (apps/web, packages/schema, packages/ingest).
 export default tseslint.config(
-  { ignores: ['dist'] },
+  { ignores: ['**/dist'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   prettier,
@@ -28,16 +30,24 @@ export default tseslint.config(
   },
   {
     // These check untyped JSON at runtime, so guards on already-narrow types are the point.
-    files: ['src/data/data.test.ts'],
+    files: ['apps/web/src/data/data.test.ts', 'apps/web/src/data/validate.test.ts'],
     rules: { '@typescript-eslint/no-unnecessary-condition': 'off' },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['apps/web/src/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
   },
-  { files: ['**/*.{js,mjs}', 'vite.config.ts'], ...tseslint.configs.disableTypeChecked },
   {
-    files: ['scripts/**', 'vite.config.ts', 'eslint.config.js'],
+    files: ['**/*.{js,mjs}', 'apps/web/vite.config.ts'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: [
+      'apps/web/scripts/**',
+      'apps/web/vite.config.ts',
+      'packages/*/src/**',
+      'eslint.config.js',
+    ],
     languageOptions: { globals: globals.node },
   },
 );

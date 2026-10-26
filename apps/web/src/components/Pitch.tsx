@@ -1,5 +1,5 @@
 import { useId } from 'preact/hooks';
-import { PITCH } from '../data/types';
+import { PITCH } from '@shotmap/schema';
 import { memo } from '../lib/memo';
 import { frameFor, type Orientation, type PitchMode } from './frame';
 import './pitch.css';

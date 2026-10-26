@@ -1,4 +1,4 @@
-import type { Outcome } from './geometry';
+import type { Outcome } from '@shotmap/schema';
 
 const n = (v: number) => Number(v.toFixed(2));
 

@@ -1,5 +1,5 @@
 import type { MatchEntry } from '../lib/search';
-import type { MatchMeta } from './types';
+import type { MatchMeta } from '@shotmap/schema';
 
 export interface BoardTeam {
   name: string;

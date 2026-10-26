@@ -1,6 +1,5 @@
 import type { Shot } from '../data/shots';
-import { PITCH } from '../data/types';
-import type { Outcome } from './geometry';
+import { PITCH, type Outcome } from '@shotmap/schema';
 import type { TeamView } from './route';
 
 export const teamsOf = (view: TeamView): readonly (0 | 1)[] =>
