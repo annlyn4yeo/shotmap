@@ -18,8 +18,10 @@
   "env": {
     "staging": {
       "name": "shotmap-api-staging",
+      // vars are not inherited by an environment: empty means no CORS header, until the web app has an origin.
+      "vars": { "WEB_ORIGIN": "" },
       "d1_databases": [
-        { "binding": "DB", "database_name": "shotmap-staging", "database_id": "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create" }
+        { "binding": "DB", "database_name": "shotmap-staging", "database_id": "08d9f3ac-8ba7-414e-bbbf-7661f0634d97" }
       ]
       // With a domain on Cloudflare (decision Q2, the default), route /v1/* on it so it is same-origin:
       // "routes": [{ "pattern": "staging.example.com/v1/*", "zone_name": "example.com" }]

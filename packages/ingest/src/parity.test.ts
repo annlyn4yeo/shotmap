@@ -85,7 +85,11 @@ function httpSource(base: string): Source {
     }
     expect(res.status, url).toBe(200);
     const body = schema.parse(await res.json());
-    expect(res.headers.get('etag'), url).toMatch(/^"[^"]+"$/);
+    // The Worker sends a strong ETag naming the release. Cloudflare's edge makes it weak
+    // (W/"...") when it compresses the body, which a revalidating client still matches.
+    const etag = (res.headers.get('etag') ?? '').replace(/^W\//, '');
+    expect(etag, url).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+    expect(etag.startsWith(`"${body.release}-`), url).toBe(true);
     expect(res.headers.get('cache-control'), url).toContain(
       pinned ? 'immutable' : 's-maxage',
     );
