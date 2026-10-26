@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { IndexFile } from '../data/types';
+import type { IndexFile } from '@shotmap/schema';
 import { entriesOf, groupEntries, normalise, searchEntries } from './search';
 
 const index = JSON.parse(readFileSync('public/data/index.json', 'utf8')) as IndexFile;

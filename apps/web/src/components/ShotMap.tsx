@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Shot } from '../data/shots';
-import { PITCH } from '../data/types';
+import { OUTCOMES, PITCH, type Outcome } from '@shotmap/schema';
 import { playerCounts, placeShootout, tally, teamsOf } from '../lib/derive';
 import { isFiltered } from '../lib/route';
-import { OUTCOMES, OUTCOME_LABEL, markRadius, type Outcome } from '../lib/geometry';
+import { OUTCOME_LABEL, markRadius } from '../lib/geometry';
 import { BOTH, WIDE, useMedia, useSize, useWidth } from '../lib/hooks';
 import { useStore } from '../lib/store';
 import { resetFilters, store, toggleOutcome, update } from '../state/app';

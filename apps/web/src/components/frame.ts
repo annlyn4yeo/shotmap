@@ -1,4 +1,4 @@
-import { PITCH } from '../data/types';
+import { PITCH } from '@shotmap/schema';
 
 export type PitchMode = 'full' | 'half';
 export type Orientation = 'horizontal' | 'vertical';

@@ -1,4 +1,4 @@
-import type { IndexFile } from '../data/types';
+import type { IndexFile } from '@shotmap/schema';
 
 /** One match, flattened out of the index with everything the picker shows and searches. */
 export interface MatchEntry {

@@ -1,4 +1,4 @@
-import { DATA_DIR, type IndexFile, type MatchFile } from './types';
+import { DATA_DIR, type IndexFile, type MatchFile } from '@shotmap/schema';
 
 /**
  * Typed loader for the generated files. Every path is fetched once: results are

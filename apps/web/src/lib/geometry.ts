@@ -1,7 +1,4 @@
-/** The five marks a shot can be drawn as. StatsBomb's finer outcomes are grouped into these. */
-export type Outcome = 'goal' | 'saved' | 'off' | 'blocked' | 'post';
-
-export const OUTCOMES: readonly Outcome[] = ['goal', 'saved', 'off', 'blocked', 'post'];
+import type { Outcome } from '@shotmap/schema';
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
   goal: 'Goal',

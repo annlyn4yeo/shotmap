@@ -1,9 +1,12 @@
-import type { Outcome } from '../src/lib/geometry';
-
-/** Raw StatsBomb open data. Pin `ref` to a commit SHA to freeze the source. */
+/**
+ * Raw StatsBomb open data, pinned to a commit so a fresh download is the same data.
+ * `master` resolved to this SHA on 2026-10-26 (committed 2026-09-07, "chore: add
+ * required labels check (#79)"). All 302 files in the cache were checked byte for byte
+ * (git blob hashes) against this commit's tree.
+ */
 export const source = {
   base: 'https://raw.githubusercontent.com/statsbomb/open-data',
-  ref: 'master',
+  ref: '4b73468fc5b0f1950f9f66fada70ad3a4f9327cb',
 };
 
 /**
@@ -39,17 +42,5 @@ export const concurrency = 4;
 
 export const retries = 5;
 
-/**
- * Every StatsBomb outcome we have seen, with its label and the UI mark it is drawn as.
- * An outcome missing from this table stops the build, so a new one is a conscious choice.
- */
-export const outcomes: Record<string, { label: string; group: Outcome }> = {
-  Goal: { label: 'Goal', group: 'goal' },
-  Saved: { label: 'Saved', group: 'saved' },
-  'Saved Off Target': { label: 'Saved, would have missed', group: 'saved' },
-  'Saved to Post': { label: 'Saved onto the post', group: 'saved' },
-  'Off T': { label: 'Off target', group: 'off' },
-  Wayward: { label: 'Wayward', group: 'off' },
-  Blocked: { label: 'Blocked', group: 'blocked' },
-  Post: { label: 'Hit the post', group: 'post' },
-};
+// The outcome-to-mark table lives in @shotmap/schema (OUTCOME_TABLE): the app and the
+// API need it too. An outcome missing from it still stops the build.

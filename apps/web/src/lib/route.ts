@@ -1,4 +1,4 @@
-import { OUTCOMES, type Outcome } from './geometry';
+import { OUTCOMES, type Outcome } from '@shotmap/schema';
 
 export type TeamView = 'both' | 'home' | 'away';
 

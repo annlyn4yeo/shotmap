@@ -1,5 +1,4 @@
-import type { Outcome } from '../lib/geometry';
-import type { Enums, MatchFile, ShotColumns } from './types';
+import type { Enums, MatchFile, Outcome, ShotColumns } from '@shotmap/schema';
 
 /** One shot, decoded from the column arrays into something a view can use. */
 export interface Shot {

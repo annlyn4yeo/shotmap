@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@shotmap/schema": "workspace:*",
     "preact": "^11.0.1"
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
-import { OUTCOMES, OUTCOME_LABEL, type Outcome } from '../lib/geometry';
+import { OUTCOMES, type Outcome } from '@shotmap/schema';
+import { OUTCOME_LABEL } from '../lib/geometry';
 import { markPath } from '../lib/marks';
 import { memo } from '../lib/memo';
 import './shots.css';

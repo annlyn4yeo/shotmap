@@ -1,6 +1,5 @@
 import { loadIndex, loadMatch, readIndex, readMatch } from '../data/load';
-import type { IndexFile, MatchFile } from '../data/types';
-import type { Outcome } from '../lib/geometry';
+import type { IndexFile, MatchFile, Outcome } from '@shotmap/schema';
 import { createStore } from '../lib/store';
 import { DEFAULT_ROUTE, formatHash, parseHash, type Route } from '../lib/route';
 import { withTransition } from '../lib/transition';
