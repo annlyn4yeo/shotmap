@@ -1,21 +1,31 @@
 {
   "name": "shotmap",
   "private": true,
+  "type": "module",
   "version": "0.0.0",
   "packageManager": "pnpm@10.29.3",
   "scripts": {
     "dev": "pnpm --filter @shotmap/web dev",
     "build": "pnpm --filter @shotmap/web build",
     "preview": "pnpm --filter @shotmap/web preview",
-    "typecheck": "pnpm --filter @shotmap/web typecheck",
-    "lint": "pnpm --filter @shotmap/web lint",
-    "format": "pnpm --filter @shotmap/web format",
-    "test": "pnpm --filter @shotmap/web test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "pnpm -r --if-present test",
     "size": "pnpm --filter @shotmap/web size",
     "lh": "pnpm --filter @shotmap/web lh",
     "inp": "pnpm --filter @shotmap/web inp",
     "contrast": "pnpm --filter @shotmap/web contrast",
     "fonts": "pnpm --filter @shotmap/web fonts",
-    "data": "pnpm --filter @shotmap/web data"
+    "data": "pnpm --filter @shotmap/ingest data"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
   }
 }
