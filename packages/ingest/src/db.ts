@@ -39,6 +39,8 @@ CREATE TABLE seasons (
   id INTEGER NOT NULL,
   name TEXT NOT NULL,
   sort INTEGER NOT NULL,
+  -- Stored, so /v1/meta never has to count 10,000 matches.
+  match_count INTEGER NOT NULL,
   PRIMARY KEY (competition_id, id)
 ) WITHOUT ROWID;
 
@@ -190,10 +192,23 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
   db.exec('BEGIN');
 
   const addCompetition = insert('competitions', ['id', 'name', 'sort']);
-  const addSeason = insert('seasons', ['competition_id', 'id', 'name', 'sort']);
+  const addSeason = insert('seasons', [
+    'competition_id',
+    'id',
+    'name',
+    'sort',
+    'match_count',
+  ]);
+  const perSeason = new Map<string, number>();
+  for (const m of input.matches) {
+    const key = `${m.file.meta.competition.id}/${m.file.meta.season.id}`;
+    perSeason.set(key, (perSeason.get(key) ?? 0) + 1);
+  }
   input.competitions.forEach((c, i) => {
     addCompetition(c.id, c.name, i);
-    c.seasons.forEach((s, j) => addSeason(c.id, s.id, s.name, j));
+    c.seasons.forEach((s, j) =>
+      addSeason(c.id, s.id, s.name, j, perSeason.get(`${c.id}/${s.id}`) ?? 0),
+    );
   });
   const addStage = insert('stages', ['id', 'name', 'sort']);
   input.stages.forEach((name, i) => addStage(i, name, i));
@@ -401,6 +416,11 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
     ['source_ref', input.ref],
     ['schema_version', String(SCHEMA_VERSION)],
     ['hero_match', String(input.hero)],
+    // Stored, so /v1/meta does not count 500,000 shots on every cold request.
+    ['count_matches', String(counts.matches ?? 0)],
+    ['count_shots', String(counts.shots ?? 0)],
+    ['count_players', String(counts.players ?? 0)],
+    ['count_teams', String(counts.teams ?? 0)],
   ] as const)
     addMeta.run(key, value);
 

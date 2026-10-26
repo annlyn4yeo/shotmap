@@ -239,6 +239,27 @@ export function checkDatabase(db: DatabaseSync): Check[] {
     ),
   ]);
 
+  // Stored counts, which /v1/meta serves instead of counting
+  const stored = Object.fromEntries(
+    rows("SELECT key, value FROM meta WHERE key LIKE 'count_%'").map((r) => [
+      String(r.key),
+      Number(r.value),
+    ]),
+  );
+  check('/v1/meta: stored counts equal the tables, and each season counts its matches', [
+    ...['matches', 'shots', 'players', 'teams'].flatMap((table) => {
+      const actual = scalar(`SELECT COUNT(*) FROM ${table}`);
+      const kept = stored[`count_${table}`];
+      return kept === actual
+        ? []
+        : [`count_${table} is ${String(kept)}, the table has ${actual}`];
+    }),
+    ...listed(
+      'SELECT s.competition_id AS c, s.id AS s FROM seasons s WHERE s.match_count != (SELECT COUNT(*) FROM matches m WHERE m.competition_id = s.competition_id AND m.season_id = s.id)',
+      (r) => `season ${String(r.c)}/${String(r.s)}`,
+    ),
+  ]);
+
   return checks;
 }
 

@@ -1,0 +1,27 @@
+{
+  "name": "@shotmap/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "load": "wrangler d1 execute DB --local --file=../../packages/ingest/out/shotmap.sql",
+    "latency": "node scripts/latency.mjs"
+  },
+  "dependencies": {
+    "@shotmap/queries": "workspace:*",
+    "@shotmap/schema": "workspace:*",
+    "hono": "^4.13.14"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.7",
+    "@cloudflare/workers-types": "^5.20261026.1",
+    "@types/node": "^26.6.5",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.152.0"
+  }
+}

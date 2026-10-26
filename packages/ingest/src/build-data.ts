@@ -38,6 +38,7 @@ import {
 } from './data.config';
 import { runChecks } from './checks';
 import { writeDatabase } from './db';
+import { writeDump } from './dump';
 import type { MatchRecord, RichShot, RosterRow } from './rich';
 
 // Paths do not depend on where the script is run from.
@@ -46,6 +47,8 @@ const CACHE = join(PACKAGE, '.cache', 'statsbomb');
 const OUT = resolve(PACKAGE, '..', '..', 'apps', 'web', 'public', 'data');
 // The SQLite database (git-ignored).
 const DB = join(PACKAGE, 'out', 'shotmap.sqlite');
+// The SQL dump of it, for D1 (git-ignored).
+const DUMP = join(PACKAGE, 'out', 'shotmap.sql');
 
 // Only the parts of the raw files we read.
 interface RawCompetition {
@@ -753,6 +756,12 @@ async function main() {
     if (c.problems.length)
       failures.push(`database check "${c.name}": ${c.problems.length} problems`);
   }
+
+  // The SQL dump D1 is loaded from (D1 cannot import a .sqlite file).
+  const dump = writeDump(DB, DUMP);
+  console.log(
+    `  dump ${DUMP}: ${dump.statements} statements, ${(dump.bytes / 1024).toFixed(0)} KiB, largest ${dump.largestStatement} bytes (D1 allows 100,000)`,
+  );
   if (failures.length) {
     console.error(`\nFailed:\n  ${failures.join('\n  ')}`);
     process.exitCode = 1;

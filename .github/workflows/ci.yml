@@ -51,8 +51,21 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Includes the Worker tests, which run inside workerd (the Cloudflare Vitest plugin).
       - name: Test
         run: pnpm test
+
+      # The migration's safety net over HTTP: load the dump into a local D1 the way
+      # `wrangler d1 execute --file` does it for staging, run the real Worker with
+      # `wrangler dev`, and require all 149 matches to decode like the static files.
+      - name: Parity against the running Worker
+        run: |
+          pnpm --filter @shotmap/api load
+          pnpm --filter @shotmap/api exec wrangler dev --port 8787 --ip 127.0.0.1 > wrangler-dev.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8787/v1/meta > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8787/v1/meta > /dev/null || { cat wrangler-dev.log; exit 1; }
+          API_URL=http://127.0.0.1:8787 pnpm --filter @shotmap/ingest exec vitest run src/parity.test.ts
+          API_URL=http://127.0.0.1:8787 node apps/api/scripts/latency.mjs
 
       - name: Contrast
         run: pnpm contrast

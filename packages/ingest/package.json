@@ -9,7 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@shotmap/schema": "workspace:*"
+    "@shotmap/schema": "workspace:*",
+    "@shotmap/queries": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

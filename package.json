@@ -17,7 +17,8 @@
     "inp": "pnpm --filter @shotmap/web inp",
     "contrast": "pnpm --filter @shotmap/web contrast",
     "fonts": "pnpm --filter @shotmap/web fonts",
-    "data": "pnpm --filter @shotmap/ingest data"
+    "data": "pnpm --filter @shotmap/ingest data",
+    "api": "pnpm --filter @shotmap/api dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

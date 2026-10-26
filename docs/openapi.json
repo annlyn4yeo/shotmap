@@ -17,11 +17,24 @@
     }
   ],
   "paths": {
-    "/v1/competitions": {
+    "/v1/meta": {
       "get": {
-        "operationId": "listCompetitions",
-        "summary": "Competitions, their seasons and the stage names",
-        "parameters": [],
+        "operationId": "getMeta",
+        "summary": "The data release, its source and size, the competitions with their seasons, and the stage names",
+        "description": "Start here: `release` in the body is the value to pass as `v` on every other request.",
+        "parameters": [
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "The data, wrapped with the release and the attribution.",
@@ -49,7 +62,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListCompetitionsResponse"
+                  "$ref": "#/components/schemas/GetMetaResponse"
                 }
               }
             }
@@ -84,25 +97,26 @@
       "get": {
         "operationId": "listMatches",
         "summary": "Browse matches, oldest first",
+        "description": "Never more than 200 matches, whatever `limit` says.",
         "parameters": [
           {
             "name": "competition",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
             "name": "season",
             "in": "query",
             "required": false,
+            "description": "Season id (use with competition)",
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "description": "Season id (use with competition)",
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -110,9 +124,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -122,9 +135,8 @@
             "description": "Team id: matches it played in",
             "schema": {
               "description": "Team id: matches it played in",
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -151,10 +163,11 @@
             "name": "limit",
             "in": "query",
             "required": false,
+            "description": "1 to 200, default 50",
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 200
+              "description": "1 to 200, default 50",
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -163,6 +176,17 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -234,9 +258,19 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -309,9 +343,19 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -393,10 +437,22 @@
             "name": "limit",
             "in": "query",
             "required": false,
+            "description": "1 to 20",
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "1 to 20",
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -468,9 +524,19 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -543,9 +609,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -555,9 +620,8 @@
             "description": "Competition id",
             "schema": {
               "description": "Competition id",
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -567,9 +631,8 @@
             "description": "Season id (with competition)",
             "schema": {
               "description": "Season id (with competition)",
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -593,6 +656,17 @@
             "schema": {
               "type": "string",
               "description": "Comma-separated outcome groups to keep: goal, saved, off, blocked, post"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -664,9 +738,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -676,9 +749,8 @@
             "description": "One of 1, 2, 4, 5, 10 (default 2)",
             "schema": {
               "description": "One of 1, 2, 4, 5, 10 (default 2)",
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 10
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -688,9 +760,8 @@
             "description": "Competition id",
             "schema": {
               "description": "Competition id",
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -700,9 +771,8 @@
             "description": "Season id (with competition)",
             "schema": {
               "description": "Season id (with competition)",
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -726,6 +796,17 @@
             "schema": {
               "type": "string",
               "description": "Comma-separated outcome groups to keep: goal, saved, off, blocked, post"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -797,9 +878,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -807,9 +887,19 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+            "schema": {
+              "description": "The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.",
+              "type": "string",
+              "pattern": "^r[0-9a-f]{12}$"
             }
           }
         ],
@@ -885,6 +975,8 @@
                 "enum": [
                   "bad_request",
                   "not_found",
+                  "method_not_allowed",
+                  "release_gone",
                   "too_many_rows",
                   "internal"
                 ]
@@ -906,7 +998,7 @@
         ],
         "additionalProperties": false
       },
-      "ListCompetitionsResponse": {
+      "GetMetaResponse": {
         "type": "object",
         "properties": {
           "release": {
@@ -945,6 +1037,61 @@
           "data": {
             "type": "object",
             "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "const": "StatsBomb open data"
+                  },
+                  "ref": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  }
+                },
+                "required": [
+                  "name",
+                  "ref"
+                ],
+                "additionalProperties": false
+              },
+              "schemaVersion": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "matches": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "shots": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "players": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "teams": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "matches",
+                  "shots",
+                  "players",
+                  "teams"
+                ],
+                "additionalProperties": false
+              },
               "competitions": {
                 "type": "array",
                 "items": {
@@ -1020,6 +1167,9 @@
               }
             },
             "required": [
+              "source",
+              "schemaVersion",
+              "counts",
               "competitions",
               "stages"
             ],

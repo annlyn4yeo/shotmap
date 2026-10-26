@@ -6,7 +6,7 @@ import globals from 'globals';
 // One config for the whole workspace. `projectService` finds the nearest tsconfig.json
 // of each file (apps/web, packages/schema, packages/ingest).
 export default tseslint.config(
-  { ignores: ['**/dist'] },
+  { ignores: ['**/dist', '**/.wrangler'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   prettier,
@@ -46,6 +46,8 @@ export default tseslint.config(
       'apps/web/scripts/**',
       'apps/web/vite.config.ts',
       'packages/*/src/**',
+      'packages/*/scripts/**',
+      'apps/api/**',
       'eslint.config.js',
     ],
     languageOptions: { globals: globals.node },

@@ -149,7 +149,7 @@ describe('the envelope', () => {
 describe('the contract', () => {
   it('has a response schema for every route, wrapped in the envelope', () => {
     expect(ROUTES.map((r) => r.path)).toEqual([
-      '/v1/competitions',
+      '/v1/meta',
       '/v1/matches',
       '/v1/matches/{id}',
       '/v1/matches/{id}/shots',

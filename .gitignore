@@ -7,3 +7,5 @@ lh-report.*
 *.md
 .cache
 packages/ingest/out
+.wrangler
+apps/api/dist

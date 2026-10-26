@@ -45,7 +45,7 @@ describe.skipIf(!haveDb)('the database', () => {
 
   it('passes every check', () => {
     const checks = runChecks(DB_PATH);
-    expect(checks.length).toBeGreaterThanOrEqual(19);
+    expect(checks.length).toBeGreaterThanOrEqual(20);
     expect(
       checks.filter((c) => c.problems.length).map((c) => `${c.name}: ${c.problems[0]}`),
     ).toEqual([]);
