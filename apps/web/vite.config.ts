@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
@@ -33,19 +33,21 @@ function preloadCriticalFont(): Plugin {
 }
 
 /**
- * Inline the index and the hero match into the page as JSON, so the first view
- * renders with no request. The loader reads it back (see seedFromDocument).
+ * Inline the hero match into the page as JSON, so the first view renders with no
+ * request. It is the committed fixture of the 2022 final as /v1 answers it, with the
+ * data release it was built from, and never a live API's answer (MIGRATION.md R14);
+ * a test keeps the fixture equal to the database. The loader reads it back (see
+ * seedFromDocument).
  */
 function inlineHeroData(): Plugin {
   return {
     name: 'shotmap:inline-hero-data',
     transformIndexHtml() {
-      const dir = 'public/data';
-      if (!existsSync(`${dir}/index.json`)) return [];
-      const index = readFileSync(`${dir}/index.json`, 'utf8');
-      const hero = (JSON.parse(index) as { hero: number }).hero;
-      const match = readFileSync(`${dir}/matches/${hero}.json`, 'utf8');
-      const json = `{"index":${index},"match":${match}}`.replaceAll(
+      // HERO_MATCH_ID in @shotmap/schema; seed.test.ts checks they agree.
+      const fixture = JSON.parse(
+        readFileSync('../../docs/golden/final-3869685.api.json', 'utf8'),
+      ) as object;
+      const json = JSON.stringify(fixture).replaceAll(
         '<',
         `${String.fromCharCode(92)}u003c`,
       );
@@ -61,8 +63,16 @@ function inlineHeroData(): Plugin {
   };
 }
 
+// /v1 is same-origin in production (a Worker route). Locally, dev and preview forward it to
+// the Worker: `pnpm api` for the local one, or API_URL=https://... for another.
+const api = {
+  '/v1': { target: process.env.API_URL ?? 'http://127.0.0.1:8787', changeOrigin: true },
+};
+
 export default defineConfig({
   plugins: [preact(), preloadCriticalFont(), inlineHeroData()],
+  server: { proxy: api },
+  preview: { proxy: api },
   build: {
     target: 'es2022',
     cssCodeSplit: true,

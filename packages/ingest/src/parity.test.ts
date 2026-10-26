@@ -27,7 +27,7 @@ import {
   type MatchQuery,
 } from '@shotmap/queries';
 // The legacy decoder is the oracle: the web app's own, with its defaults.
-import { decodeShots } from '../../../apps/web/src/data/shots';
+import { decodeLegacy } from '../../../apps/web/src/data/static-source';
 import { openDb } from './sqlite-db';
 import { DB_PATH, LEGACY, haveDb } from './testdb';
 
@@ -152,7 +152,7 @@ describe.skipIf(sources.length === 0)('parity: static files against the answers'
       'match %i (%s): decoded shots, players and header are equal',
       async (id) => {
         const legacy = read(`matches/${id}.json`) as MatchFile;
-        const legacyShots = decodeShots(legacy, index.enums);
+        const legacyShots = decodeLegacy(legacy, index.enums);
 
         const detail = await source.match(id);
         const payload = await source.shots(id);
@@ -258,7 +258,7 @@ describe.skipIf(sources.length === 0)('parity: static files against the answers'
         expect(matchId).toBeNull();
         return { ...shot, playerIdx: local.get(playerId) };
       });
-      expect(decoded).toEqual(decodeShots(fixture, index.enums));
+      expect(decoded).toEqual(decodeLegacy(fixture, index.enums));
       expect(strict).toHaveLength(
         fixture.shots.x.length + (fixture.shootout?.x.length ?? 0),
       );

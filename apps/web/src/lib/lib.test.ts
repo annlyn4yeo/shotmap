@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fitFrom, frameFor } from '../components/frame';
-import { decodeShots } from '../data/shots';
-import { OUTCOMES, type IndexFile, type MatchFile } from '@shotmap/schema';
+import { decodeMatch } from '../data/match';
+import { OUTCOMES, type MatchDetail, type MatchShots } from '@shotmap/schema';
+import { goldenDir } from '../../scripts/golden';
 import { placeShootout, playerCounts, teamStats } from './derive';
 import { markRadius } from './geometry';
 import { markPath } from './marks';
 
-const index = JSON.parse(readFileSync('public/data/index.json', 'utf8')) as IndexFile;
-const match = JSON.parse(
-  readFileSync(`public/data/matches/${index.hero}.json`, 'utf8'),
-) as MatchFile;
+// The 2022 final as /v1 answers it, decoded the way the app decodes it.
+const fixture = JSON.parse(
+  readFileSync(join(goldenDir(), 'final-3869685.api.json'), 'utf8'),
+) as { detail: MatchDetail; shots: MatchShots };
+const loaded = decodeMatch(fixture.detail, fixture.shots);
 
 describe('mark radius', () => {
   it('grows with the square root of xG, so area follows xG', () => {
@@ -83,12 +86,12 @@ describe('fitting the crop to the room', () => {
 });
 
 describe('decoding the final', () => {
-  const shots = decodeShots(match, index.enums);
+  const shots = loaded.shots;
   const open = shots.filter((s) => !s.shootout);
 
   it('turns columns into one object per shot, in match order, then the shootout kicks', () => {
-    expect(open).toHaveLength(match.shots.x.length);
-    expect(shots).toHaveLength(match.shots.x.length + (match.shootout?.x.length ?? 0));
+    expect(open).toHaveLength(fixture.shots.cols.period.filter((p) => p <= 4).length);
+    expect(shots).toHaveLength(fixture.shots.n);
     expect(shots.map((s) => s.id)).toEqual(shots.map((_, i) => i));
     expect(shots.slice(open.length).every((s) => s.shootout && s.period === 5)).toBe(
       true,
@@ -102,13 +105,23 @@ describe('decoding the final', () => {
     expect(goals.find((s) => s.player === 'Lionel Messi')?.shotType).toBe('Penalty');
   });
 
-  it('gives every shot the index of its player, so the filter and the URL can name them', () => {
-    for (const s of shots) expect(match.players[s.playerIdx]?.[0]).toBe(s.player);
+  it('gives every shot the id of its player, so the filter and the URL can name them', () => {
+    for (const s of shots)
+      expect(fixture.detail.players.find((p) => p.id === s.playerId)?.name).toBe(
+        s.player,
+      );
+    expect(new Set(shots.map((s) => s.playerId)).size).toBe(
+      fixture.detail.players.length,
+    );
+  });
+
+  it('gives each shot its place in the match and its global id', () => {
+    for (const s of shots) expect(s.shotId).toBe(fixture.detail.id * 1000 + s.id);
   });
 });
 
 describe('derived data', () => {
-  const shots = decodeShots(match, index.enums);
+  const shots = loaded.shots;
   const open = shots.filter((s) => !s.shootout);
 
   it('counts one team: shots, on target, goals and xG', () => {

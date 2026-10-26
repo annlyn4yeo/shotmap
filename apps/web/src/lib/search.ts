@@ -1,4 +1,4 @@
-import type { IndexFile } from '@shotmap/schema';
+import type { Catalog } from '../data/match';
 
 /** One match, flattened out of the index with everything the picker shows and searches. */
 export interface MatchEntry {
@@ -27,10 +27,10 @@ export interface MatchGroup {
 export const normalise = (text: string): string =>
   text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-const flat = new WeakMap<IndexFile, MatchEntry[]>();
+const flat = new WeakMap<Catalog, MatchEntry[]>();
 
 /** Every match in the index, in index order. Built once per index. */
-export function entriesOf(index: IndexFile): MatchEntry[] {
+export function entriesOf(index: Catalog): MatchEntry[] {
   const known = flat.get(index);
   if (known) return known;
   const out: MatchEntry[] = [];
@@ -100,6 +100,6 @@ export function groupEntries(entries: readonly MatchEntry[]): MatchGroup[] {
   return groups;
 }
 
-export function findEntry(index: IndexFile, id: number): MatchEntry | undefined {
+export function findEntry(index: Catalog, id: number): MatchEntry | undefined {
   return entriesOf(index).find((e) => e.id === id);
 }

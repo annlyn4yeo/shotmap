@@ -15,6 +15,9 @@ export const PITCH = {
   goalY: [36, 44],
 } as const;
 
+/** The match the app opens on and the build inlines for first paint: the 2022 World Cup final. */
+export const HERO_MATCH_ID = 3869685;
+
 /** The five marks a shot can be drawn as. StatsBomb's finer outcomes are grouped into these. */
 export const OUTCOMES = ['goal', 'saved', 'off', 'blocked', 'post'] as const;
 export type Outcome = (typeof OUTCOMES)[number];

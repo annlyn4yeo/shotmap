@@ -42,7 +42,7 @@ export const Toolbar = memo(function Toolbar({
   const grouped = team === 'both';
 
   const option = (p: PlayerCount) => (
-    <option key={p.index} value={p.index}>
+    <option key={p.id} value={p.id}>
       {p.name} ({p.count})
     </option>
   );

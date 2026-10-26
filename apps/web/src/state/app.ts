@@ -1,5 +1,6 @@
-import { loadIndex, loadMatch, readIndex, readMatch } from '../data/load';
-import type { IndexFile, MatchFile, Outcome } from '@shotmap/schema';
+import { loadIndex, loadMatch, readMatch, whenIdleUnlessSavingData } from '../data/load';
+import type { Catalog, LoadedMatch } from '../data/match';
+import { HERO_MATCH_ID, type Outcome } from '@shotmap/schema';
 import { createStore } from '../lib/store';
 import { DEFAULT_ROUTE, formatHash, parseHash, type Route } from '../lib/route';
 import { withTransition } from '../lib/transition';
@@ -7,11 +8,12 @@ import { withTransition } from '../lib/transition';
 interface MatchState {
   id: number;
   status: 'loading' | 'ready' | 'error';
-  data: MatchFile | null;
+  data: LoadedMatch | null;
 }
 
 export interface AppState {
-  index: IndexFile | null;
+  /** The match list, for the picker. It loads when the browser is idle, so nothing waits for it. */
+  index: Catalog | null;
   indexFailed: boolean;
   route: Route;
   match: MatchState;
@@ -27,10 +29,17 @@ export const store = createStore<AppState>({
 });
 
 /** The match the route points at: its own, or the hero. */
-export const matchIdOf = (state: AppState): number | null =>
-  state.route.m ?? state.index?.hero ?? null;
+export const matchIdOf = (state: AppState): number => state.route.m ?? HERO_MATCH_ID;
 
 // Loading
+
+/** Load the match list once; a failure is remembered until the next ask, which tries again. */
+export function ensureIndex(): void {
+  if (store.get().index) return;
+  loadIndex()
+    .then((index) => store.set({ index, indexFailed: false }))
+    .catch(() => store.set({ indexFailed: true }));
+}
 
 function startLoad(id: number): void {
   store.set({ match: { id, status: 'loading', data: null } });
@@ -49,7 +58,6 @@ function startLoad(id: number): void {
 function followRoute(): void {
   const state = store.get();
   const id = matchIdOf(state);
-  if (id === null) return;
   if (state.match.id === id && state.match.status !== 'error') return;
   const cached = readMatch(id);
   if (cached) store.set({ match: { id, status: 'ready', data: cached } });
@@ -57,8 +65,7 @@ function followRoute(): void {
 }
 
 export function retryMatch(): void {
-  const id = matchIdOf(store.get());
-  if (id !== null) startLoad(id);
+  startLoad(matchIdOf(store.get()));
 }
 
 // The URL
@@ -86,8 +93,7 @@ export function update(patch: Partial<Route>, options: { animate?: boolean } = {
 
 /** Go to a match with a clean slate: no filters, nothing selected. */
 export function openMatch(id: number): void {
-  const hero = store.get().index?.hero;
-  update({ ...DEFAULT_ROUTE, m: id === hero ? null : id }, { animate: true });
+  update({ ...DEFAULT_ROUTE, m: id === HERO_MATCH_ID ? null : id }, { animate: true });
 }
 
 export const resetFilters = (): void =>
@@ -109,15 +115,18 @@ export function toggleOutcome(outcome: Outcome): void {
   );
 }
 
-export const openPicker = (): void => store.set({ picker: true });
+export const openPicker = (): void => {
+  store.set({ picker: true });
+  ensureIndex();
+};
 export const closePicker = (): void => store.set({ picker: false });
 
 // Start-up
 
 /** Read the URL, load what it points at, and keep the two in step. Call once. */
 export function init(): void {
-  // Read the inlined seed now, not when this module loads, which is before it is available.
-  store.set({ index: readIndex() ?? null, route: parseHash(location.hash) });
+  // The inlined hero is read by seedFromDocument before this runs, so the first view needs no request.
+  store.set({ route: parseHash(location.hash) });
 
   window.addEventListener('popstate', () => {
     store.set({ route: parseHash(location.hash), picker: false });
@@ -134,14 +143,6 @@ export function init(): void {
     }
   });
 
-  if (store.get().index) {
-    followRoute();
-    return;
-  }
-  loadIndex()
-    .then((index) => {
-      store.set({ index });
-      followRoute();
-    })
-    .catch(() => store.set({ indexFailed: true }));
+  followRoute();
+  whenIdleUnlessSavingData(ensureIndex);
 }

@@ -45,7 +45,8 @@ export function teamStats(shots: readonly Shot[]): TeamStats {
 }
 
 export interface PlayerCount {
-  index: number;
+  /** The StatsBomb player id: what the URL and the filter use. */
+  id: number;
   name: string;
   team: 0 | 1;
   count: number;
@@ -55,11 +56,11 @@ export interface PlayerCount {
 export function playerCounts(shots: readonly Shot[]): PlayerCount[] {
   const byPlayer = new Map<number, PlayerCount>();
   for (const s of shots) {
-    const known = byPlayer.get(s.playerIdx);
+    const known = byPlayer.get(s.playerId);
     if (known) known.count++;
     else
-      byPlayer.set(s.playerIdx, {
-        index: s.playerIdx,
+      byPlayer.set(s.playerId, {
+        id: s.playerId,
         name: s.player,
         team: s.team,
         count: 1,
