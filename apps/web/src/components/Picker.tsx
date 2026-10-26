@@ -4,13 +4,15 @@ import { entriesOf, groupEntries, searchEntries, type MatchEntry } from '../lib/
 import { useStore } from '../lib/store';
 import './picker.css';
 
-const formatDate = (iso: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${iso}T12:00:00Z`));
+// One formatter for every row: building an Intl.DateTimeFormat is slow, and the list has 149.
+const DATE = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const formatDate = (iso: string) => DATE.format(new Date(`${iso}T12:00:00Z`));
 
 const scoreOf = (e: MatchEntry) =>
   `${e.homeScore}-${e.awayScore}${e.homePens !== null && e.awayPens !== null ? ` (${e.homePens}-${e.awayPens})` : ''}`;
