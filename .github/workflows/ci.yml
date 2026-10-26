@@ -29,6 +29,22 @@ jobs:
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
+      # The raw StatsBomb files, pinned to one commit (packages/ingest/src/data.config.ts).
+      # A cold cache downloads about 44 MB once; after that the ingest is offline.
+      - name: Restore the StatsBomb cache
+        uses: actions/cache@v4
+        with:
+          path: packages/ingest/.cache
+          key: statsbomb-${{ hashFiles('packages/ingest/src/data.config.ts') }}
+
+      # Builds the SQLite database the parity and database tests read, runs its checks
+      # (coordinates, the 149/149 score identity...), and rewrites the static JSON.
+      # The JSON must come out exactly as committed: that is the migration's golden master.
+      - name: Ingest, and check the static data is unchanged
+        run: |
+          pnpm data
+          git diff --exit-code -- apps/web/public/data
+
       - name: Typecheck
         run: pnpm typecheck
 

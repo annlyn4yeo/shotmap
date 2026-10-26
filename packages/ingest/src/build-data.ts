@@ -36,11 +36,16 @@ import {
   source,
   stageOrder,
 } from './data.config';
+import { runChecks } from './checks';
+import { writeDatabase } from './db';
+import type { MatchRecord, RichShot, RosterRow } from './rich';
 
 // Paths do not depend on where the script is run from.
 const PACKAGE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE = join(PACKAGE, '.cache', 'statsbomb');
 const OUT = resolve(PACKAGE, '..', '..', 'apps', 'web', 'public', 'data');
+// The SQLite database (git-ignored).
+const DB = join(PACKAGE, 'out', 'shotmap.sqlite');
 
 // Only the parts of the raw files we read.
 interface RawCompetition {
@@ -68,6 +73,7 @@ interface RawNamed {
 }
 interface RawShot {
   statsbomb_xg?: number;
+  first_time?: boolean;
   end_location?: number[];
   body_part: RawNamed;
   type: RawNamed;
@@ -75,6 +81,8 @@ interface RawShot {
   outcome: RawNamed;
 }
 interface RawEvent {
+  id: string;
+  play_pattern: RawNamed;
   period: number;
   minute: number;
   second: number;
@@ -274,12 +282,7 @@ const widen = (range: number[], v: number) => {
   range[1] = Math.max(range[1] ?? v, v);
 };
 
-interface Built {
-  file: MatchFile;
-  stage: string;
-  /** Own goals credited to each side. Not shots, so dropped, but they explain score gaps. */
-  ownGoals: [number, number];
-}
+type Built = MatchRecord;
 
 function buildMatch(
   raw: RawMatch,
@@ -298,11 +301,12 @@ function buildMatch(
     throw new Error(`match ${raw.match_id}: shot by unknown team ${id}`);
   };
 
-  const names = new Map<number, { name: string; shirt: number | null }>();
+  const names = new Map<number, { name: string; full: string; shirt: number | null }>();
   for (const team of lineups ?? []) {
     for (const p of team.lineup) {
       names.set(p.player_id, {
         name: p.player_nickname ?? p.player_name,
+        full: p.player_name,
         shirt: p.jersey_number,
       });
     }
@@ -313,6 +317,10 @@ function buildMatch(
   const playerIndex = new Map<number, number>();
   const shots = emptyColumns();
   const shootout = emptyColumns();
+  // What the static files drop, for the database.
+  const richOpen: RichShot[] = [];
+  const richKick: RichShot[] = [];
+  const roster: RosterRow[] = [];
 
   for (const e of events) {
     if (e.position && e.location) {
@@ -348,6 +356,14 @@ function buildMatch(
       index = players.length;
       playerIndex.set(player.id, index);
       players.push([known?.name ?? player.name, team, known?.shirt ?? null]);
+      roster.push({
+        playerId: player.id,
+        teamId: e.team.id,
+        side: team,
+        name: known?.name ?? player.name,
+        fullName: known?.full ?? player.name,
+        shirt: known?.shirt ?? null,
+      });
     }
 
     const out = observe('outcome', shot.outcome);
@@ -367,6 +383,13 @@ function buildMatch(
     into.body.push(observe('bodyPart', shot.body_part));
     into.type.push(observe('shotType', shot.type));
     into.tech.push(observe('technique', shot.technique));
+    (e.period === 5 ? richKick : richOpen).push({
+      uuid: e.id,
+      playerId: player.id,
+      teamId: e.team.id,
+      playPattern: e.play_pattern.id,
+      firstTime: shot.first_time === true,
+    });
 
     if (e.period === 5) {
       stats.shootout++;
@@ -422,7 +445,12 @@ function buildMatch(
     shots,
     shootout: hasShootout ? shootout : null,
   };
-  return { file, stage: raw.competition_stage.name, ownGoals };
+  return {
+    file,
+    stage: raw.competition_stage.name,
+    ownGoals,
+    rich: { shots: [...richOpen, ...richKick], roster },
+  };
 }
 
 // Output
@@ -644,6 +672,15 @@ async function main() {
       `index.json is ${kb(indexGz).trim()} KB gzip (budget ${budgets.indexKB})`,
     );
 
+  // The database, next to the JSON: the same shots, plus what the files drop.
+  const summary = writeDatabase(DB, {
+    ref: source.ref,
+    hero: index.hero,
+    competitions,
+    stages: stageNames,
+    matches: built,
+  });
+
   // Report
 
   console.log('\nSize table (KB)');
@@ -701,8 +738,23 @@ async function main() {
     failures.push(
       `${unexplained.length} matches have a score that shots plus own goals do not explain`,
     );
+
+  console.log(`\nDatabase ${DB}`);
+  console.log(
+    `  release ${summary.release}; rows: ${Object.entries(summary.counts)
+      .map(([table, n]) => `${table} ${n}`)
+      .join(', ')}`,
+  );
+  for (const c of runChecks(DB)) {
+    console.log(
+      `  ${c.problems.length ? 'FAIL' : 'ok  '} ${c.name}${c.note ? ` (${c.note})` : ''}`,
+    );
+    for (const p of c.problems.slice(0, 10)) console.error(`        ${p}`);
+    if (c.problems.length)
+      failures.push(`database check "${c.name}": ${c.problems.length} problems`);
+  }
   if (failures.length) {
-    console.error(`\nOver budget:\n  ${failures.join('\n  ')}`);
+    console.error(`\nFailed:\n  ${failures.join('\n  ')}`);
     process.exitCode = 1;
   }
 }
