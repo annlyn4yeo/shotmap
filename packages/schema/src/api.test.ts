@@ -174,7 +174,9 @@ describe('the contract', () => {
   });
 
   it('keeps docs/openapi.json equal to what the route table generates', () => {
-    const committed = readFileSync(resolve(root, 'docs/openapi.json'), 'utf8');
+    // A Windows checkout may have turned the line endings into CRLF.
+    const file = readFileSync(resolve(root, 'docs/openapi.json'), 'utf8');
+    const committed = file.split('\r\n').join('\n');
     expect(committed).toBe(`${JSON.stringify(buildOpenApi(), null, 2)}\n`);
   });
 
