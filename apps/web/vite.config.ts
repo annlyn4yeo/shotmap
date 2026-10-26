@@ -42,10 +42,21 @@ function inlineHeroData(): Plugin {
     transformIndexHtml() {
       const dir = 'public/data';
       if (!existsSync(`${dir}/index.json`)) return [];
-      const index = readFileSync(`${dir}/index.json`, 'utf8');
-      const hero = (JSON.parse(index) as { hero: number }).hero;
-      const match = readFileSync(`${dir}/matches/${hero}.json`, 'utf8');
-      const json = `{"index":${index},"match":${match}}`.replaceAll(
+      const index = JSON.parse(readFileSync(`${dir}/index.json`, 'utf8')) as {
+        hero: number;
+      };
+      // The hero match comes from the committed fixture, and the release it was built from
+      // from the fixture of the same match as /v1 answers it: never a live API (R14).
+      const golden = `../../docs/golden/final-${index.hero}`;
+      const match = JSON.parse(readFileSync(`${golden}.json`, 'utf8')) as {
+        meta: { id: number };
+      };
+      const { release } = JSON.parse(readFileSync(`${golden}.api.json`, 'utf8')) as {
+        release: string;
+      };
+      if (match.meta.id !== index.hero)
+        throw new Error(`the hero fixture is match ${match.meta.id}, not ${index.hero}`);
+      const json = JSON.stringify({ release, index, match }).replaceAll(
         '<',
         `${String.fromCharCode(92)}u003c`,
       );
@@ -61,8 +72,16 @@ function inlineHeroData(): Plugin {
   };
 }
 
+// /v1 is same-origin in production (a Worker route). Locally, dev and preview forward it to
+// the Worker: `pnpm api` for the local one, or API_URL=https://... for another.
+const api = {
+  '/v1': { target: process.env.API_URL ?? 'http://127.0.0.1:8787', changeOrigin: true },
+};
+
 export default defineConfig({
   plugins: [preact(), preloadCriticalFont(), inlineHeroData()],
+  server: { proxy: api },
+  preview: { proxy: api },
   build: {
     target: 'es2022',
     cssCodeSplit: true,

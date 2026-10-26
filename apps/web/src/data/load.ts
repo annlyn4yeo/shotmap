@@ -12,11 +12,13 @@ import { indexFromApi, matchFromApi } from './api-source';
 export type DataSource = 'static' | 'api';
 
 /**
- * `VITE_DATA_SOURCE` picks the source at build time. A build made with
- * `VITE_ALLOW_DATA_OVERRIDE=1` (staging) also honours `?data=api` or `?data=static`.
+ * The API is the default. `VITE_DATA_SOURCE=static` at build time puts the static files back
+ * (the rollback until they are deleted). A build made with `VITE_ALLOW_DATA_OVERRIDE=1`
+ * (staging) also honours `?data=api` or `?data=static`.
  */
 export function dataSource(): DataSource {
-  const fixed: DataSource = import.meta.env.VITE_DATA_SOURCE === 'api' ? 'api' : 'static';
+  const fixed: DataSource =
+    import.meta.env.VITE_DATA_SOURCE === 'static' ? 'static' : 'api';
   if (import.meta.env.VITE_ALLOW_DATA_OVERRIDE !== '1' || typeof location === 'undefined')
     return fixed;
   const asked = new URLSearchParams(location.search).get('data');
@@ -85,16 +87,24 @@ export function readMatch(id: number): MatchFile | undefined {
 
 /**
  * The build inlines the index and the hero match into the page as JSON
- * (`<script id="seed">`). Reading them here means the first view needs no
- * request at all. Call once, before rendering.
+ * (`<script id="seed">`), made from committed files and never from a live API. Reading
+ * them here means the first view needs no request at all. The seed also names the data
+ * release it was built from, so the first request for another match is already pinned
+ * (and immutable); if the data has moved on, the API says 410 and the client recovers.
+ * Call once, before rendering.
  */
 export function seedFromDocument(): void {
   const text = document.getElementById('seed')?.textContent;
   if (!text) return;
   try {
-    const data = JSON.parse(text) as { index: IndexFile; match: MatchFile };
+    const data = JSON.parse(text) as {
+      release?: string;
+      index: IndexFile;
+      match: MatchFile;
+    };
     seed(INDEX, data.index);
     seed(matchKey(data.match.meta.id), data.match);
+    if (data.release) api().setRelease(data.release);
   } catch {
     // A bad seed is not fatal: the loader fetches the files as usual.
   }

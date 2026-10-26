@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { HERO_MATCH_ID, type IndexFile } from '@shotmap/schema';
-import { fakeApi, jsonResponse } from './fake-api';
+import { RELEASE, fakeApi, jsonResponse } from './fake-api';
 
 /** The static index, reduced to what the loader reads: three matches of one season. */
 const index = {
@@ -216,6 +216,25 @@ describe('the api source', () => {
     expect(lastTwo.every((u) => u.includes('v=r'))).toBe(true);
   });
 
+  it('pins even its first request when the page was seeded with a release', async () => {
+    vi.stubGlobal('document', {
+      getElementById: () => ({
+        textContent: JSON.stringify({
+          release: RELEASE,
+          index,
+          match: { meta: { id: 7 } },
+        }),
+      }),
+    });
+    const { seedFromDocument, loadMatch } = await load();
+    seedFromDocument();
+    await loadMatch(10);
+    expect(fetchMock.mock.calls.map((c) => c[0]).sort()).toEqual([
+      `/v1/matches/10/shots?v=${RELEASE}`,
+      `/v1/matches/10?v=${RELEASE}`,
+    ]);
+  });
+
   it('refuses a payload that does not decode, instead of drawing it', async () => {
     fetchMock.mockImplementation((url: string) => {
       const answer = fakeApi([10])(url);
@@ -240,24 +259,24 @@ describe('the api source', () => {
 });
 
 describe('choosing the source', () => {
-  it('is static unless the build says api', async () => {
+  it('is the api unless the build says static', async () => {
     const { dataSource } = await load();
-    expect(dataSource()).toBe('static');
-    vi.stubEnv('VITE_DATA_SOURCE', 'api');
     expect(dataSource()).toBe('api');
+    vi.stubEnv('VITE_DATA_SOURCE', 'static');
+    expect(dataSource()).toBe('static');
   });
 
   it('honours ?data= only on a build that allows it', async () => {
-    vi.stubGlobal('location', { search: '?data=api' });
+    vi.stubGlobal('location', { search: '?data=static' });
     const { dataSource } = await load();
-    expect(dataSource()).toBe('static');
+    expect(dataSource()).toBe('api');
 
     vi.stubEnv('VITE_ALLOW_DATA_OVERRIDE', '1');
-    expect(dataSource()).toBe('api');
-    vi.stubGlobal('location', { search: '?data=static' });
-    vi.stubEnv('VITE_DATA_SOURCE', 'api');
     expect(dataSource()).toBe('static');
-    vi.stubGlobal('location', { search: '?data=somethingelse' });
+    vi.stubGlobal('location', { search: '?data=api' });
+    vi.stubEnv('VITE_DATA_SOURCE', 'static');
     expect(dataSource()).toBe('api');
+    vi.stubGlobal('location', { search: '?data=somethingelse' });
+    expect(dataSource()).toBe('static');
   });
 });

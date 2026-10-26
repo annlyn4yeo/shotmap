@@ -62,11 +62,13 @@ jobs:
         run: |
           pnpm --filter @shotmap/api load
           pnpm --filter @shotmap/api exec wrangler dev --port 8787 --ip 127.0.0.1 > wrangler-dev.log 2>&1 &
+          WORKER=$!
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:8787/v1/meta > /dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:8787/v1/meta > /dev/null || { cat wrangler-dev.log; exit 1; }
           API_URL=http://127.0.0.1:8787 pnpm --filter @shotmap/ingest exec vitest run src/parity.test.ts
           API_URL=http://127.0.0.1:8787 pnpm --filter @shotmap/web exec vitest run src/data/source-parity.test.ts
           API_URL=http://127.0.0.1:8787 node apps/api/scripts/latency.mjs
+          kill "$WORKER"
 
       - name: Contrast
         run: pnpm contrast
@@ -78,3 +80,28 @@ jobs:
       # The script rebuilds first, so this step also fails on a broken build.
       - name: Size budgets
         run: pnpm size
+
+      # MIGRATION.md step 9: the match page on the API, measured on the built app (the default
+      # build, which is the one that ships) with a local Worker behind the preview server's
+      # /v1 proxy. Mobile preset, median of three runs; a miss fails the job: Performance under
+      # 97, LCP over 1.6 s, or any layout shift. The hero is inlined, so these do not wait for
+      # the API; the Worker is here because the page prefetches the next match.
+      - name: Lighthouse
+        run: |
+          pnpm --filter @shotmap/api load
+          pnpm --filter @shotmap/api exec wrangler dev --port 8787 --ip 127.0.0.1 > wrangler-lh.log 2>&1 &
+          WORKER=$!
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8787/v1/meta > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8787/v1/meta > /dev/null || { cat wrangler-lh.log; exit 1; }
+          status=0
+          pnpm lh || status=$?
+          kill "$WORKER"
+          exit $status
+
+      - name: Keep the Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: apps/web/lh-report.html
+          if-no-files-found: ignore
