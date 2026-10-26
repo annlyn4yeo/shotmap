@@ -6,7 +6,8 @@
   "scripts": {
     "data": "tsx src/build-data.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fixture": "tsx src/write-fixture.ts"
   },
   "dependencies": {
     "@shotmap/schema": "workspace:*",

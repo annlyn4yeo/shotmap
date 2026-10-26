@@ -4,7 +4,14 @@
  * contains it. The schemas themselves are at `@shotmap/schema/zod`, for tests, ingest and
  * the API.
  */
-export { DATA_DIR, OUTCOMES, OUTCOME_TABLE, PITCH, SCHEMA_VERSION } from './constants';
+export {
+  DATA_DIR,
+  HERO_MATCH_ID,
+  OUTCOMES,
+  OUTCOME_TABLE,
+  PITCH,
+  SCHEMA_VERSION,
+} from './constants';
 export type { Outcome } from './constants';
 export {
   API_VERSION,
