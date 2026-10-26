@@ -3,15 +3,17 @@
  *
  *   pnpm data
  *
- * Raw downloads are cached (gzipped) in .cache/, so a re-run, or a run that was
- * interrupted, only fetches what is missing. Output goes to public/data and is
- * committed, so deploys never depend on the network.
+ * Raw downloads are cached (gzipped) in packages/ingest/.cache/, so a re-run, or a run
+ * that was interrupted, only fetches what is missing. Output goes to
+ * apps/web/public/data and is committed, so deploys never depend on the network.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import {
+  OUTCOME_TABLE,
   PITCH,
   SCHEMA_VERSION,
   type EnumEntry,
@@ -23,20 +25,22 @@ import {
   type OutcomeEntry,
   type PlayerRow,
   type ShotColumns,
-} from '../src/data/types';
+} from '@shotmap/schema';
+import { IndexFileSchema, MatchFileSchema } from '@shotmap/schema/zod';
 import {
   budgets,
   concurrency,
   hero,
   include,
-  outcomes,
   retries,
   source,
   stageOrder,
 } from './data.config';
 
-const CACHE = '.cache/statsbomb';
-const OUT = 'public/data';
+// Paths do not depend on where the script is run from.
+const PACKAGE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const CACHE = join(PACKAGE, '.cache', 'statsbomb');
+const OUT = resolve(PACKAGE, '..', '..', 'apps', 'web', 'public', 'data');
 
 // Only the parts of the raw files we read.
 interface RawCompetition {
@@ -124,6 +128,35 @@ async function download(path: string): Promise<Buffer> {
     }
   }
   throw new Error(`Giving up on ${path} after ${retries} retries: ${lastError}`);
+}
+
+/**
+ * The cache is only valid for the ref it was filled from. A marker file records that
+ * ref, and a cache from another ref (or a non-empty one with no marker) is refused, so
+ * the dataset can never be a mix of two versions of the source.
+ */
+async function checkCacheRef(): Promise<void> {
+  const marker = join(CACHE, 'REF');
+  if (existsSync(marker)) {
+    const was = (await readFile(marker, 'utf8')).trim();
+    if (was !== source.ref) {
+      throw new Error(
+        `The cache was filled from ${was} but source.ref is ${source.ref}. Delete ${CACHE} or restore the ref.`,
+      );
+    }
+    return;
+  }
+  if (existsSync(CACHE) && (await readdir(CACHE)).length > 0) {
+    throw new Error(
+      `${CACHE} has files but no REF marker, so its source is unknown. Delete it, or write the ref it came from into ${marker} once you have checked.`,
+    );
+  }
+  await mkdir(CACHE, { recursive: true });
+  await writeFile(
+    marker,
+    `${source.ref}
+`,
+  );
 }
 
 let fetched = 0;
@@ -411,7 +444,7 @@ function legend(): Enums {
   const outcome: OutcomeEntry[] = [...observed.outcome]
     .sort(([a], [b]) => a - b)
     .map(([id, name]) => {
-      const known = outcomes[name];
+      const known = OUTCOME_TABLE[name];
       if (!known) {
         throw new Error(
           `Unknown shot outcome "${name}" (id ${id}). Add it to \`outcomes\` in scripts/data.config.ts.`,
@@ -437,6 +470,7 @@ function sortStages(stages: Set<string>): string[] {
 
 async function main() {
   const started = Date.now();
+  await checkCacheRef();
   console.log(`StatsBomb open data @ ${source.ref}, cache ${CACHE}`);
 
   const all = await getJson<RawCompetition[]>('competitions.json');
@@ -544,11 +578,19 @@ async function main() {
   const index: IndexFile = {
     v: SCHEMA_VERSION,
     hero: heroBuilt.file.meta.id,
-    pitch: { length: PITCH.length, width: PITCH.width, goalY: [...PITCH.goalY] },
+    pitch: {
+      length: PITCH.length,
+      width: PITCH.width,
+      goalY: [PITCH.goalY[0], PITCH.goalY[1]],
+    },
     enums: legend(),
     stages: stageNames,
     competitions,
   };
+
+  // The output must match the schema the app and its tests rely on, before anything is written.
+  for (const b of built) MatchFileSchema.parse(b.file);
+  IndexFileSchema.parse(index);
 
   // Write, replacing whatever was there so removed matches do not linger.
 

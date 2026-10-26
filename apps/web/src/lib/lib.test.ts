@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fitFrom, frameFor } from '../components/frame';
 import { decodeShots } from '../data/shots';
-import type { IndexFile, MatchFile } from '../data/types';
+import { OUTCOMES, type IndexFile, type MatchFile } from '@shotmap/schema';
 import { placeShootout, playerCounts, teamStats } from './derive';
-import { OUTCOMES, markRadius } from './geometry';
+import { markRadius } from './geometry';
 import { markPath } from './marks';
 
 const index = JSON.parse(readFileSync('public/data/index.json', 'utf8')) as IndexFile;

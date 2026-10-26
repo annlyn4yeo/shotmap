@@ -6,7 +6,7 @@ import { MatchLine, Scoreline } from './components/Scoreline';
 import { Wordmark } from './components/Wordmark';
 import { boardFromEntry, boardFromMeta, type BoardMeta } from './data/board';
 import { decodeShots } from './data/shots';
-import type { MatchFile } from './data/types';
+import type { MatchFile } from '@shotmap/schema';
 import { useDelayed } from './lib/hooks';
 import { findEntry } from './lib/search';
 import { useStore } from './lib/store';

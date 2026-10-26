@@ -1,15 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  PITCH,
-  SCHEMA_VERSION,
-  type IndexFile,
-  type MatchFile,
-  type ShotColumns,
-} from './types';
+import { PITCH, type IndexFile, type MatchFile, type ShotColumns } from '@shotmap/schema';
+import { IndexFileSchema, MatchFileSchema } from '@shotmap/schema/zod';
 
-// These tests read the committed output of `pnpm data`.
+// These tests read the committed output of `pnpm data`. The file shapes (keys, types,
+// tuples, column lengths, periods, dates) are checked by the zod schemas in
+// @shotmap/schema; what is left here are the facts a schema cannot know.
 const DIR = 'public/data';
 const readJson = (path: string): unknown =>
   JSON.parse(readFileSync(join(DIR, path), 'utf8'));
@@ -27,24 +24,6 @@ const typeIds = new Set(index.enums.shotType.map((e) => e.id));
 const techIds = new Set(index.enums.technique.map((e) => e.id));
 const goalId = index.enums.outcome.find((e) => e.name === 'Goal')?.id;
 
-const COLUMNS = [
-  'min',
-  'sec',
-  'per',
-  'team',
-  'player',
-  'x',
-  'y',
-  'ex',
-  'ey',
-  'ez',
-  'xg',
-  'out',
-  'body',
-  'type',
-  'tech',
-] as const;
-
 /** Event coordinates run a hair past the pitch (x reaches 120.1 in the real data). */
 const SLACK = 0.5;
 const decimals = (v: number, dp: number) =>
@@ -55,8 +34,11 @@ function goalsBy(cols: ShotColumns, team: number): number {
 }
 
 describe('index.json', () => {
-  it('has the expected shape', () => {
-    expect(index.v).toBe(SCHEMA_VERSION);
+  it('matches the schema', () => {
+    IndexFileSchema.parse(readJson('index.json'));
+  });
+
+  it('describes the pitch and lists the competitions', () => {
     expect(index.pitch).toEqual({
       length: PITCH.length,
       width: PITCH.width,
@@ -67,12 +49,10 @@ describe('index.json', () => {
     expect(rows.length).toBeGreaterThan(100);
   });
 
-  it('describes every outcome with one of the five UI marks', () => {
-    const groups = new Set(['goal', 'saved', 'off', 'blocked', 'post']);
+  it('names every outcome StatsBomb uses, with unique ids in every enum', () => {
     expect(index.enums.outcome.map((e) => e.name)).toEqual(
       expect.arrayContaining(['Goal', 'Saved', 'Off T', 'Blocked', 'Post']),
     );
-    for (const e of index.enums.outcome) expect(groups.has(e.group), e.name).toBe(true);
     for (const list of [
       index.enums.outcome,
       index.enums.bodyPart,
@@ -83,26 +63,17 @@ describe('index.json', () => {
     }
   });
 
-  it('lists well-formed rows in date order, with unique ids', () => {
+  it('lists matches in date order, with valid stages and unique ids', () => {
     const problems: string[] = [];
     for (const c of index.competitions) {
       for (const s of c.seasons) {
         let previous = '';
-        for (const row of s.matches) {
-          const [id, date, home, away, hs, as, stage, hp, ap] = row;
-          if ((row as readonly unknown[]).length !== 9)
-            problems.push(`${id}: wrong field count`);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) problems.push(`${id}: bad date ${date}`);
+        for (const [id, date, , , , , stage] of s.matches) {
           if (date < previous)
             problems.push(`${id}: out of order in ${c.name} ${s.name}`);
           previous = date;
-          if (!home || !away) problems.push(`${id}: missing team name`);
-          if (!Number.isInteger(hs) || !Number.isInteger(as))
-            problems.push(`${id}: bad score`);
           if (index.stages[stage] === undefined)
             problems.push(`${id}: bad stage index ${stage}`);
-          if ((hp === null) !== (ap === null))
-            problems.push(`${id}: half a shootout score`);
         }
       }
     }
@@ -123,24 +94,26 @@ describe('index.json', () => {
 describe('match files', () => {
   it('all match the schema', () => {
     const problems: string[] = [];
+    for (const row of rows) {
+      const result = MatchFileSchema.safeParse(readJson(`matches/${row[0]}.json`));
+      if (!result.success)
+        problems.push(
+          `${row[0]}: ${result.error.issues.map((i) => i.message).join('; ')}`,
+        );
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('agree with the index and with themselves', () => {
+    const problems: string[] = [];
 
     for (const row of rows) {
       const m = readMatch(row[0]);
       const at = (msg: string) => problems.push(`${row[0]}: ${msg}`);
 
-      if (m.v !== SCHEMA_VERSION) at('wrong version');
       if (m.meta.id !== row[0]) at('meta id differs from file name');
-      if (m.meta.teams.length !== 2) at('needs two teams');
       if (m.meta.teams[0].score !== row[4] || m.meta.teams[1].score !== row[5])
         at('score differs from index');
-      if (!m.meta.competition.name || !m.meta.season.name || !m.meta.stage)
-        at('missing competition, season or stage');
-
-      for (const p of m.players) {
-        if (typeof p[0] !== 'string' || !p[0] || (p[1] !== 0 && p[1] !== 1))
-          at(`bad player ${JSON.stringify(p)}`);
-        if (p[2] !== null && !Number.isInteger(p[2])) at(`bad shirt ${String(p[2])}`);
-      }
 
       const sets: [string, ShotColumns | null][] = [
         ['shots', m.shots],
@@ -149,17 +122,8 @@ describe('match files', () => {
       for (const [name, cols] of sets) {
         if (!cols) continue;
         const n = cols.x.length;
-        if (name === 'shootout' && n === 0) at('empty shootout should be null');
-        for (const key of COLUMNS) {
-          if (cols[key].length !== n)
-            at(`${name}.${key} has ${cols[key].length} items, expected ${n}`);
-        }
         for (let i = 0; i < n; i++) {
           const here = `${name}[${i}]`;
-          const per = cols.per[i] ?? 0;
-          if (name === 'shots' ? per < 1 || per > 4 : per !== 5)
-            at(`${here} in period ${per}`);
-          if (cols.team[i] !== 0 && cols.team[i] !== 1) at(`${here} team`);
           if ((cols.player[i] ?? -1) < 0 || (cols.player[i] ?? 0) >= m.players.length)
             at(`${here} player index`);
           else if (m.players[cols.player[i] ?? 0]?.[1] !== cols.team[i])
@@ -194,8 +158,6 @@ describe('match files', () => {
           for (const v of [x, y, ex, ey, ez ?? 0])
             if (!decimals(v, 1)) at(`${here} coordinate ${v} has more than 1 decimal`);
           if (!(xg >= 0 && xg <= 1) || !decimals(xg, 3)) at(`${here} xg ${xg}`);
-          if (!Number.isInteger(cols.min[i]) || !Number.isInteger(cols.sec[i]))
-            at(`${here} time`);
         }
         // Chronological within the file.
         for (let i = 1; i < n; i++) {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import type { IndexFile } from './types';
+import type { IndexFile } from '@shotmap/schema';
 
 const index = {
   competitions: [
