@@ -32,13 +32,14 @@ export const COLUMN_KEYS = [
   'tech',
 ] as const;
 
-function fail(where: string, what: string): never {
+export function fail(where: string, what: string): never {
   throw new DataError(`${where}: ${what}`);
 }
-const isObject = (v: unknown): v is Record<string, unknown> =>
+export const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
-const isInt = (v: unknown): v is number => Number.isInteger(v);
-const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+export const isInt = (v: unknown): v is number => Number.isInteger(v);
+export const isNum = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isFinite(v);
 
 /** The ids of an enum list, which must be unique. */
 function idsOf(list: unknown, where: string): Set<number> {

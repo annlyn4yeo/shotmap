@@ -1,53 +1,86 @@
 import { DATA_DIR, type IndexFile, type MatchFile } from '@shotmap/schema';
+import { createApiClient, type ApiClient } from '../api/client';
+import { indexFromApi, matchFromApi } from './api-source';
 
 /**
- * Typed loader for the generated files. Every path is fetched once: results are
- * kept in memory, and concurrent callers share one in-flight request. A failed
- * request is forgotten, so a later call tries again.
+ * Typed loader for the match data, from one of two sources behind the same exports: the
+ * generated static files, or the /v1 API through a temporary adapter that gives back the
+ * static files' shapes (MIGRATION.md step 8). Every key is fetched once: results are kept
+ * in memory, and concurrent callers share one in-flight request. A failed request is
+ * forgotten, so a later call tries again.
  */
+export type DataSource = 'static' | 'api';
+
+/**
+ * `VITE_DATA_SOURCE` picks the source at build time. A build made with
+ * `VITE_ALLOW_DATA_OVERRIDE=1` (staging) also honours `?data=api` or `?data=static`.
+ */
+export function dataSource(): DataSource {
+  const fixed: DataSource = import.meta.env.VITE_DATA_SOURCE === 'api' ? 'api' : 'static';
+  if (import.meta.env.VITE_ALLOW_DATA_OVERRIDE !== '1' || typeof location === 'undefined')
+    return fixed;
+  const asked = new URLSearchParams(location.search).get('data');
+  return asked === 'api' || asked === 'static' ? asked : fixed;
+}
+
+let client: ApiClient | undefined;
+const api = (): ApiClient =>
+  (client ??= createApiClient({
+    base: (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, ''),
+  }));
+
 const requests = new Map<string, Promise<unknown>>();
 /** Resolved values, so a view can render synchronously when the data is already here. */
 const values = new Map<string, unknown>();
 
-function getJson<T>(path: string): Promise<T> {
-  const known = requests.get(path);
+function once<T>(key: string, produce: () => Promise<T>): Promise<T> {
+  const known = requests.get(key);
   if (known) return known as Promise<T>;
 
-  const request = fetch(`${import.meta.env.BASE_URL}${DATA_DIR}/${path}`)
-    .then((res) => {
-      if (!res.ok) throw new Error(`Could not load ${path} (${res.status})`);
-      return res.json() as Promise<T>;
-    })
-    .then((value) => {
-      values.set(path, value);
-      return value;
-    });
-  requests.set(path, request);
-  request.catch(() => requests.delete(path));
+  const request = produce().then((value) => {
+    values.set(key, value);
+    return value;
+  });
+  requests.set(key, request);
+  request.catch(() => requests.delete(key));
   return request;
 }
 
-function seed(path: string, value: unknown): void {
-  requests.set(path, Promise.resolve(value));
-  values.set(path, value);
+function getStatic<T>(path: string): Promise<T> {
+  return fetch(`${import.meta.env.BASE_URL}${DATA_DIR}/${path}`).then((res) => {
+    if (!res.ok) throw new Error(`Could not load ${path} (${res.status})`);
+    return res.json() as Promise<T>;
+  });
 }
 
+function seed(key: string, value: unknown): void {
+  requests.set(key, Promise.resolve(value));
+  values.set(key, value);
+}
+
+const INDEX = 'index.json';
+const matchKey = (id: number) => `matches/${id}.json`;
+
 export function loadIndex(): Promise<IndexFile> {
-  return getJson<IndexFile>('index.json');
+  return once(INDEX, () =>
+    dataSource() === 'api' ? indexFromApi(api()) : getStatic<IndexFile>(INDEX),
+  );
 }
 
 export function loadMatch(id: number): Promise<MatchFile> {
-  return getJson<MatchFile>(`matches/${id}.json`);
+  return once(matchKey(id), () =>
+    dataSource() === 'api' ? matchFromApi(api(), id) : getStatic<MatchFile>(matchKey(id)),
+  );
 }
 
 /** The index, if it has already loaded. */
 export function readIndex(): IndexFile | undefined {
-  return values.get('index.json') as IndexFile | undefined;
+  return values.get(INDEX) as IndexFile | undefined;
 }
 
 /** A match, if it has already loaded. */
 export function readMatch(id: number): MatchFile | undefined {
-  return values.get(`matches/${id}.json`) as MatchFile | undefined;
+  return values.get(matchKey(id)) as MatchFile | undefined;
 }
 
 /**
@@ -60,8 +93,8 @@ export function seedFromDocument(): void {
   if (!text) return;
   try {
     const data = JSON.parse(text) as { index: IndexFile; match: MatchFile };
-    seed('index.json', data.index);
-    seed(`matches/${data.match.meta.id}.json`, data.match);
+    seed(INDEX, data.index);
+    seed(matchKey(data.match.meta.id), data.match);
   } catch {
     // A bad seed is not fatal: the loader fetches the files as usual.
   }
@@ -94,7 +127,7 @@ function savingData(): boolean {
 
 /**
  * Warm the cache with the match the user is most likely to open next, once the
- * browser is idle. Fetches that one file and nothing else.
+ * browser is idle. Fetches that one match and nothing else.
  */
 export function prefetchNextMatch(currentId: number): void {
   if (savingData()) return;
