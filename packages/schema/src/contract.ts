@@ -39,6 +39,42 @@ export const LIMITS = {
   /** Rows in one player's shots payload. Past it, ask for density instead. */
   playerShotsMax: 10_000,
   densitySteps: [1, 2, 4, 5, 10],
+  /** A match has under 1,000 shots (SHOT_ID_FACTOR), so this bounds its payload. */
+  matchShotsMax: 1000,
+  matchPlayersMax: 200,
+  /** Competitions, seasons and stages in /v1/meta. */
+  metaRowsMax: 1000,
+} as const;
+
+/**
+ * The query parameters each live route accepts. Anything else is a 400, so nobody can mint
+ * endless cache keys with ?junk=1, 2, 3. A test checks these against the zod route table.
+ */
+export const QUERY_ALLOW = {
+  getMeta: ['v'],
+  listMatches: [
+    'competition',
+    'season',
+    'stage',
+    'team',
+    'from',
+    'to',
+    'limit',
+    'cursor',
+    'v',
+  ],
+  getMatch: ['v'],
+  getMatchShots: ['v'],
+} as const;
+
+/** The HTTP status of each error code. */
+export const ERROR_STATUS = {
+  bad_request: 400,
+  not_found: 404,
+  method_not_allowed: 405,
+  release_gone: 410,
+  too_many_rows: 400,
+  internal: 500,
 } as const;
 
 /** A shot's global id: stable across re-ingests, unique while a match has under 1,000 shots. */

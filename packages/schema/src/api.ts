@@ -37,7 +37,14 @@ export const envelope = <T extends z.ZodType>(data: T) =>
 
 export const ErrorSchema = z.strictObject({
   error: z.strictObject({
-    code: z.enum(['bad_request', 'not_found', 'too_many_rows', 'internal']),
+    code: z.enum([
+      'bad_request',
+      'not_found',
+      'method_not_allowed',
+      'release_gone',
+      'too_many_rows',
+      'internal',
+    ]),
     message: text,
   }),
 });
@@ -226,6 +233,24 @@ export const CompetitionsSchema = z.strictObject({
   stages: z.array(z.strictObject({ id, name: text })),
 });
 
+/** The data release's description: where it came from, how big it is, and what it covers. */
+export const MetaSchema = z.strictObject({
+  source: z.strictObject({
+    name: z.literal('StatsBomb open data'),
+    /** The commit of statsbomb/open-data the data was built from. */
+    ref: z.string().regex(/^[0-9a-f]{40}$/),
+  }),
+  schemaVersion: int.min(1),
+  counts: z.strictObject({
+    matches: int.min(0),
+    shots: int.min(0),
+    players: int.min(0),
+    teams: int.min(0),
+  }),
+  competitions: CompetitionsSchema.shape.competitions,
+  stages: CompetitionsSchema.shape.stages,
+});
+
 export const SearchSchema = z.strictObject({
   q: z.string(),
   players: z.array(z.strictObject({ id, name: text })),
@@ -254,24 +279,41 @@ export const CompareSchema = z.strictObject({ a: PlayerSchema, b: PlayerSchema }
 
 // Routes
 
+/** Query and path values arrive as strings: these describe the wire form. The Worker parses them by hand (no zod at runtime). */
+const qint = z.string().regex(/^\d{1,9}$/);
+const qdate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .describe('YYYY-MM-DD');
+const pinned = z
+  .string()
+  .regex(RELEASE_PATTERN)
+  .optional()
+  .describe(
+    'The data release you expect. Matching the current release makes the answer cacheable for a year; any other release answers 410 `release_gone`.',
+  );
+const withPin = <S extends z.ZodRawShape>(shape: S) => z.object({ ...shape, v: pinned });
+
 const outcomeList = z
   .string()
   .describe(`Comma-separated outcome groups to keep: ${OUTCOMES.join(', ')}`);
 const filters = {
-  competition: id.optional().describe('Competition id'),
-  season: id.optional().describe('Season id (with competition)'),
+  competition: qint.optional().describe('Competition id'),
+  season: qint.optional().describe('Season id (with competition)'),
   period: z
     .enum(['open', 'shootout'])
     .optional()
     .describe('Open play only or the shootout only'),
   outcome: outcomeList.optional(),
 };
-const idParam = z.object({ id: z.coerce.number().int().min(0) });
+const idParam = z.object({ id: qint });
 
 export interface Route {
   id: string;
   path: string;
   summary: string;
+  /** `live` routes are served by apps/api; `planned` ones are in the contract but answer 404 for now. */
+  status: 'live' | 'planned';
   params?: z.ZodObject;
   query?: z.ZodObject;
   response: z.ZodType;
@@ -281,39 +323,52 @@ export interface Route {
 
 export const ROUTES: readonly Route[] = [
   {
-    id: 'listCompetitions',
-    path: '/v1/competitions',
-    summary: 'Competitions, their seasons and the stage names',
-    response: envelope(CompetitionsSchema),
+    id: 'getMeta',
+    path: '/v1/meta',
+    summary:
+      'The data release, its source and size, the competitions with their seasons, and the stage names',
+    status: 'live',
+    query: withPin({}),
+    response: envelope(MetaSchema),
+    notes:
+      'Start here: `release` in the body is the value to pass as `v` on every other request.',
   },
   {
     id: 'listMatches',
     path: '/v1/matches',
     summary: 'Browse matches, oldest first',
-    query: z.object({
-      competition: id.optional(),
-      season: id.optional(),
-      stage: id.optional(),
-      team: id.optional().describe('Team id: matches it played in'),
-      from: day.optional(),
-      to: day.optional(),
-      limit: z.coerce.number().int().min(1).max(LIMITS.matchesPageMax).optional(),
+    status: 'live',
+    query: withPin({
+      competition: qint.optional(),
+      season: qint.optional().describe('Season id (use with competition)'),
+      stage: qint.optional(),
+      team: qint.optional().describe('Team id: matches it played in'),
+      from: qdate.optional(),
+      to: qdate.optional(),
+      limit: qint
+        .optional()
+        .describe(`1 to ${LIMITS.matchesPageMax}, default ${LIMITS.matchesPageDefault}`),
       cursor: z.string().optional(),
     }),
     response: envelope(MatchListSchema),
+    notes: `Never more than ${LIMITS.matchesPageMax} matches, whatever \`limit\` says.`,
   },
   {
     id: 'getMatch',
     path: '/v1/matches/{id}',
     summary: 'One match: result, teams and the players who shot',
+    status: 'live',
     params: idParam,
+    query: withPin({}),
     response: envelope(MatchDetailSchema),
   },
   {
     id: 'getMatchShots',
     path: '/v1/matches/{id}/shots',
     summary: "One match's shots as columns",
+    status: 'live',
     params: idParam,
+    query: withPin({}),
     response: envelope(MatchShotsSchema),
     notes:
       'Shootout kicks are rows with period 5 after open play, so `seq` is stable: it equals the position the static files give a shot.',
@@ -322,9 +377,10 @@ export const ROUTES: readonly Route[] = [
     id: 'search',
     path: '/v1/search',
     summary: 'Players, teams and matches whose name starts with the words typed',
-    query: z.object({
+    status: 'planned',
+    query: withPin({
       q: z.string().min(1).max(64),
-      limit: z.coerce.number().int().min(1).max(LIMITS.searchPerKind).optional(),
+      limit: qint.optional().describe(`1 to ${LIMITS.searchPerKind}`),
     }),
     response: envelope(SearchSchema),
     notes:
@@ -334,15 +390,18 @@ export const ROUTES: readonly Route[] = [
     id: 'getPlayer',
     path: '/v1/players/{id}',
     summary: 'A player, summed across every team they shot for',
+    status: 'planned',
     params: idParam,
+    query: withPin({}),
     response: envelope(PlayerSchema),
   },
   {
     id: 'getPlayerShots',
     path: '/v1/players/{id}/shots',
     summary: "A player's shots across matches, as columns",
+    status: 'planned',
     params: idParam,
-    query: z.object(filters),
+    query: withPin(filters),
     response: envelope(PlayerShotsSchema),
     notes: `Sorted by match, then seq. Answers 400 \`too_many_rows\` above ${LIMITS.playerShotsMax} rows: ask for density instead.`,
   },
@@ -350,13 +409,10 @@ export const ROUTES: readonly Route[] = [
     id: 'getPlayerDensity',
     path: '/v1/players/{id}/density',
     summary: "A player's shots counted into square bins",
+    status: 'planned',
     params: idParam,
-    query: z.object({
-      step: z.coerce
-        .number()
-        .int()
-        .min(1)
-        .max(10)
+    query: withPin({
+      step: qint
         .optional()
         .describe(`One of ${LIMITS.densitySteps.join(', ')} (default 2)`),
       ...filters,
@@ -367,7 +423,8 @@ export const ROUTES: readonly Route[] = [
     id: 'compare',
     path: '/v1/compare',
     summary: 'Two players side by side',
-    query: z.object({ a: id, b: id }),
+    status: 'planned',
+    query: withPin({ a: qint, b: qint }),
     response: envelope(CompareSchema),
   },
 ];
@@ -380,6 +437,7 @@ export type MatchDetail = z.infer<typeof MatchDetailSchema>;
 export type MatchSummary = z.infer<typeof MatchSummarySchema>;
 export type MatchList = z.infer<typeof MatchListSchema>;
 export type Competitions = z.infer<typeof CompetitionsSchema>;
+export type Meta = z.infer<typeof MetaSchema>;
 export type SearchResult = z.infer<typeof SearchSchema>;
 export type Player = z.infer<typeof PlayerSchema>;
 export type Compare = z.infer<typeof CompareSchema>;
