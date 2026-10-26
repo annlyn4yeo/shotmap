@@ -88,7 +88,7 @@ export function ShotMap({ names, shots }: ShotMapProps) {
     [shots, route.shootout],
   );
   const pool = useMemo(
-    () => inScope.filter((s) => route.player === null || s.playerIdx === route.player),
+    () => inScope.filter((s) => route.player === null || s.playerId === route.player),
     [inScope, route.player],
   );
   const byTeam = useMemo(

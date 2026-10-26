@@ -6,14 +6,19 @@ export type TeamView = 'both' | 'home' | 'away';
  * Everything that makes a view shareable, kept in the URL hash. Defaults are
  * left out, so the plain hero page has an empty hash.
  *
- *   #m=3869685&team=home&p=4&hide=off,blocked&so=1&shot=12
+ *   #m=3869685&team=home&player=5503&hide=off,blocked&so=1&shot=12
+ *
+ * Links made before the API had `p=<index into the match's player list>`. That number means
+ * nothing now, so it is not read: such a link still opens the match, the team, the hidden
+ * outcomes, the shootout and the selected shot (`shot` is still the position within the
+ * match), with no player chosen.
  */
 export interface Route {
   /** Match id. Null means the hero match. */
   m: number | null;
   /** Null means the default for the screen: both teams when wide, the home team when narrow. */
   team: TeamView | null;
-  /** Index into the match's player list. */
+  /** A StatsBomb player id, not an index. */
   player: number | null;
   /** Outcomes hidden by the legend filter. */
   hide: readonly Outcome[];
@@ -48,7 +53,7 @@ export function parseHash(hash: string): Route {
   return {
     m: whole(params.get('m')),
     team: TEAMS.find((t) => t === team) ?? null,
-    player: whole(params.get('p')),
+    player: whole(params.get('player')),
     hide: [...new Set(hide)].sort(),
     shootout: params.get('so') === '1',
     shot: whole(params.get('shot')),
@@ -60,7 +65,7 @@ export function formatHash(route: Route): string {
   const params = new URLSearchParams();
   if (route.m !== null) params.set('m', String(route.m));
   if (route.team !== null) params.set('team', route.team);
-  if (route.player !== null) params.set('p', String(route.player));
+  if (route.player !== null) params.set('player', String(route.player));
   if (route.hide.length) params.set('hide', [...route.hide].sort().join(','));
   if (route.shootout) params.set('so', '1');
   if (route.shot !== null) params.set('shot', String(route.shot));

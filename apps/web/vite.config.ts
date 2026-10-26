@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
@@ -33,30 +33,21 @@ function preloadCriticalFont(): Plugin {
 }
 
 /**
- * Inline the index and the hero match into the page as JSON, so the first view
- * renders with no request. The loader reads it back (see seedFromDocument).
+ * Inline the hero match into the page as JSON, so the first view renders with no
+ * request. It is the committed fixture of the 2022 final as /v1 answers it, with the
+ * data release it was built from, and never a live API's answer (MIGRATION.md R14);
+ * a test keeps the fixture equal to the database. The loader reads it back (see
+ * seedFromDocument).
  */
 function inlineHeroData(): Plugin {
   return {
     name: 'shotmap:inline-hero-data',
     transformIndexHtml() {
-      const dir = 'public/data';
-      if (!existsSync(`${dir}/index.json`)) return [];
-      const index = JSON.parse(readFileSync(`${dir}/index.json`, 'utf8')) as {
-        hero: number;
-      };
-      // The hero match comes from the committed fixture, and the release it was built from
-      // from the fixture of the same match as /v1 answers it: never a live API (R14).
-      const golden = `../../docs/golden/final-${index.hero}`;
-      const match = JSON.parse(readFileSync(`${golden}.json`, 'utf8')) as {
-        meta: { id: number };
-      };
-      const { release } = JSON.parse(readFileSync(`${golden}.api.json`, 'utf8')) as {
-        release: string;
-      };
-      if (match.meta.id !== index.hero)
-        throw new Error(`the hero fixture is match ${match.meta.id}, not ${index.hero}`);
-      const json = JSON.stringify({ release, index, match }).replaceAll(
+      // HERO_MATCH_ID in @shotmap/schema; seed.test.ts checks they agree.
+      const fixture = JSON.parse(
+        readFileSync('../../docs/golden/final-3869685.api.json', 'utf8'),
+      ) as object;
+      const json = JSON.stringify(fixture).replaceAll(
         '<',
         `${String.fromCharCode(92)}u003c`,
       );

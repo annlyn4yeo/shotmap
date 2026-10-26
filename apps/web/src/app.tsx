@@ -4,9 +4,8 @@ import { Picker, PickerButton } from './components/Picker';
 import { ShotMap } from './components/ShotMap';
 import { MatchLine, Scoreline } from './components/Scoreline';
 import { Wordmark } from './components/Wordmark';
-import { boardFromEntry, boardFromMeta, type BoardMeta } from './data/board';
-import { decodeShots } from './data/shots';
-import type { MatchFile } from '@shotmap/schema';
+import { boardFromDetail, boardFromEntry, type BoardMeta } from './data/board';
+import type { LoadedMatch } from './data/match';
 import { useDelayed } from './lib/hooks';
 import { findEntry } from './lib/search';
 import { useStore } from './lib/store';
@@ -18,34 +17,28 @@ const SKELETON_AFTER_MS = 150;
 
 export function App() {
   const index = useStore(store, (s) => s.index);
-  const indexFailed = useStore(store, (s) => s.indexFailed);
   const id = useStore(store, matchIdOf);
   const match = useStore(store, (s) => s.match);
 
-  const waiting = match.status === 'loading' || (index === null && !indexFailed);
-  const slow = useDelayed(waiting, SKELETON_AFTER_MS);
+  const slow = useDelayed(match.status === 'loading', SKELETON_AFTER_MS);
 
   // While a match loads quickly, keep showing the last one: no flash, no half-changed page.
-  const lastReady = useRef<MatchFile | null>(null);
+  const lastReady = useRef<LoadedMatch | null>(null);
   if (match.status === 'ready' && match.data) lastReady.current = match.data;
-  const shown: MatchFile | null =
+  const shown: LoadedMatch | null =
     match.status === 'ready'
       ? match.data
       : match.status === 'loading' && !slow
         ? lastReady.current
         : null;
 
-  // The board can come from the index row alone, so it changes the instant a match is chosen.
+  // The board can come from the match-list row alone, so it changes the instant a match
+  // is chosen. Nothing here waits for the list: the match brings its own.
   const board: BoardMeta | null = useMemo(() => {
-    if (shown) return boardFromMeta(shown.meta);
-    const entry = index && id !== null ? findEntry(index, id) : undefined;
+    if (shown) return boardFromDetail(shown.detail);
+    const entry = index ? findEntry(index, id) : undefined;
     return entry ? boardFromEntry(entry) : null;
   }, [shown, index, id]);
-
-  const shots = useMemo(
-    () => (shown && index ? decodeShots(shown, index.enums) : []),
-    [shown, index],
-  );
 
   useEffect(() => {
     document.title = board
@@ -67,15 +60,13 @@ export function App() {
       </header>
 
       <main class="main">
-        {indexFailed ? (
-          <ErrorState what="list" />
-        ) : match.status === 'error' ? (
+        {match.status === 'error' ? (
           <ErrorState what="match" />
-        ) : shown && index ? (
+        ) : shown ? (
           <ShotMap
-            key={shown.meta.id}
-            names={[shown.meta.teams[0].name, shown.meta.teams[1].name]}
-            shots={shots}
+            key={shown.detail.id}
+            names={[shown.detail.teams[0].name, shown.detail.teams[1].name]}
+            shots={shown.shots}
           />
         ) : slow ? (
           <MapSkeleton from={80} />

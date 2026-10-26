@@ -1,12 +1,7 @@
-import {
-  LIMITS,
-  type IndexFile,
-  type MatchFile,
-  type MatchSummary,
-} from '@shotmap/schema';
+import { LIMITS, type MatchSummary } from '@shotmap/schema';
 import type { ApiClient } from '../api/client';
-import { LEGACY_ENUMS, toIndexFile, toMatchFile } from './adapter';
-import { assertIndex, assertMatch } from './validate';
+import { toCatalog } from './catalog';
+import { decodeMatch, type Catalog, type LoadedMatch } from './match';
 import {
   assertMatchDetail,
   assertMatchList,
@@ -20,8 +15,8 @@ const MAX_PAGES = Math.ceil(10_000 / LIMITS.matchesPageMax) + 1;
 const page = (cursor: string | null) =>
   `/v1/matches?limit=${LIMITS.matchesPageMax}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
 
-/** The legacy index, assembled from `/v1/meta` and every page of `/v1/matches`. */
-export async function indexFromApi(client: ApiClient): Promise<IndexFile> {
+/** The match list, assembled from `/v1/meta` and every page of `/v1/matches`. */
+export async function catalogFromApi(client: ApiClient): Promise<Catalog> {
   const [meta, first] = await Promise.all([
     client.get('/v1/meta', { validate: assertMeta }),
     client.get(page(null), { validate: assertMatchList }),
@@ -34,18 +29,14 @@ export async function indexFromApi(client: ApiClient): Promise<IndexFile> {
     matches.push(...more.items);
     next = more.next;
   }
-  const index = toIndexFile(meta, matches);
-  assertIndex(index);
-  return index;
+  return toCatalog(meta, matches);
 }
 
-/** The legacy match, assembled from its detail and its shots, which load together. */
-export async function matchFromApi(client: ApiClient, id: number): Promise<MatchFile> {
+/** A match: its detail and its shots load together, and the shots are decoded strictly. */
+export async function matchFromApi(client: ApiClient, id: number): Promise<LoadedMatch> {
   const [detail, shots] = await Promise.all([
     client.get(`/v1/matches/${id}`, { validate: assertMatchDetail }),
     client.get(`/v1/matches/${id}/shots`, { validate: assertShots }),
   ]);
-  const match = toMatchFile(detail, shots);
-  assertMatch(match, LEGACY_ENUMS);
-  return match;
+  return decodeMatch(detail, shots);
 }

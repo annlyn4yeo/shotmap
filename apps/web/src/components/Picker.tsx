@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { closePicker, openMatch, openPicker, store } from '../state/app';
+import { HERO_MATCH_ID } from '@shotmap/schema';
+import { closePicker, ensureIndex, openMatch, openPicker, store } from '../state/app';
 import { entriesOf, groupEntries, searchEntries, type MatchEntry } from '../lib/search';
 import { useStore } from '../lib/store';
 import './picker.css';
@@ -70,7 +71,8 @@ export function Picker() {
 
 function PickerBody() {
   const index = useStore(store, (s) => s.index);
-  const currentId = useStore(store, (s) => s.route.m ?? s.index?.hero ?? null);
+  const failed = useStore(store, (s) => s.indexFailed);
+  const currentId = useStore(store, (s) => s.route.m ?? HERO_MATCH_ID);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const list = useRef<HTMLUListElement>(null);
@@ -154,10 +156,27 @@ function PickerBody() {
       </header>
 
       <p class="visually-hidden" role="status">
-        {results.length === 1 ? '1 match' : `${results.length} matches`}
+        {index === null
+          ? failed
+            ? 'The match list did not load'
+            : 'Loading the matches'
+          : results.length === 1
+            ? '1 match'
+            : `${results.length} matches`}
       </p>
 
-      {results.length === 0 ? (
+      {index === null ? (
+        <div class="picker-empty">
+          <p class="picker-empty-title">
+            {failed ? 'The match list did not load' : 'Loading the matches'}
+          </p>
+          {failed ? (
+            <button type="button" class="picker-clear" onClick={ensureIndex}>
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : results.length === 0 ? (
         <div class="picker-empty">
           <p class="picker-empty-title">No match for &ldquo;{query.trim()}&rdquo;</p>
           <p>Try a team name, a stage such as &ldquo;semi&rdquo;, or a year.</p>
