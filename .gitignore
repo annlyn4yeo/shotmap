@@ -6,3 +6,4 @@ lh-report.*
 *.log
 *.md
 .cache
+packages/ingest/out
