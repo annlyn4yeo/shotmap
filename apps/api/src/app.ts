@@ -10,6 +10,7 @@ import {
   CACHE_CONTROL,
   ERROR_STATUS,
   HEADERS,
+  LEGACY_RELEASE_PATTERN,
   RELEASE_PATTERN,
 } from '@shotmap/schema';
 import {
@@ -158,8 +159,14 @@ export function createApp(options: AppOptions = {}) {
       const url = new URL(c.req.url);
       const query = allowedQuery(route, url.searchParams);
       const pin = query.find(([k]) => k === 'v')?.[1];
-      if (pin !== undefined && !RELEASE_PATTERN.test(pin))
-        throw new BadRequest('v must be r followed by 12 hex digits');
+      // A pin in the old form is a release that is gone, not a malformed one: a page built then
+      // gets the 410 and learns the current release.
+      if (
+        pin !== undefined &&
+        !RELEASE_PATTERN.test(pin) &&
+        !LEGACY_RELEASE_PATTERN.test(pin)
+      )
+        throw new BadRequest('v must be a release such as 2026-10-27.2422edac0126');
 
       const db = makeDb(env);
       const release = await currentRelease(db);

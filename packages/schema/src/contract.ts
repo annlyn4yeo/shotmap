@@ -12,8 +12,19 @@ export const ATTRIBUTION = {
   terms: 'https://github.com/statsbomb/open-data',
 } as const;
 
-/** A data release: `r` and 12 hex digits, a hash of everything ingest wrote. */
-export const RELEASE_PATTERN = /^r[0-9a-f]{12}$/;
+/**
+ * A data release: the date it was cut, a dot, and 12 hex digits of a hash of everything ingest
+ * wrote (`2026-10-27.2422edac0126`). The hash says what is in it, the date says when it was
+ * released; both are in every cache key, so two releases never share one.
+ */
+export const RELEASE_PATTERN = /^\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}$/;
+
+/**
+ * The form a release had before it carried a date (`r2422edac0126`). Nothing serves it any more,
+ * but a page built then may still ask for it: that is a release that is gone (410), not a
+ * malformed one (400), so the page learns the new release and carries on.
+ */
+export const LEGACY_RELEASE_PATTERN = /^r[0-9a-f]{12}$/;
 
 /**
  * Cache-Control values. Data never changes within a release, so a request that names
@@ -63,6 +74,7 @@ export const QUERY_ALLOW = {
     'to',
     'limit',
     'cursor',
+    'order',
     'v',
   ],
   getMatch: ['v'],

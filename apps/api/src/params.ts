@@ -158,5 +158,11 @@ export function matchQuery(pairs: readonly [string, string][]): MatchQuery {
     q.limit = Math.min(limit, LIMITS.matchesPageMax);
   }
   set('cursor', params.get('cursor'));
+  const order = params.get('order');
+  if (order !== undefined) {
+    if (order !== 'oldest' && order !== 'newest')
+      throw new BadRequest('order must be oldest or newest');
+    q.order = order;
+  }
   return q;
 }

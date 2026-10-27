@@ -33,6 +33,9 @@ export const ENUMS = {
   shotType: [
     { id: 61, name: 'Corner', label: 'Corner' },
     { id: 62, name: 'Free Kick', label: 'Free Kick' },
+    // A shot from the kick-off itself. Not in the three competitions the static files hold; the
+    // whole catalogue has some.
+    { id: 65, name: 'Kick Off', label: 'Kick Off' },
     { id: 87, name: 'Open Play', label: 'Open Play' },
     { id: 88, name: 'Penalty', label: 'Penalty' },
   ],

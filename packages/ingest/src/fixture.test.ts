@@ -2,8 +2,19 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { HERO_MATCH_ID, shotIdOf } from '@shotmap/schema';
 import { MatchDetailSchema, MatchShotsSchema, envelope } from '@shotmap/schema/zod';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { FIXTURE_PATH, buildFixture } from './fixture';
 import { haveDb } from './testdb';
+
+/** The whole catalogue's database, when it has been built here (CI builds the three competitions only). */
+const CATALOGUE_DB = join(
+  import.meta.dirname,
+  '..',
+  'out',
+  'catalogue',
+  'shotmap.sqlite',
+);
 
 // The committed seed of the final, in /v1's shape. The web build inlines it and the web tests
 // serve it, so it must be exactly what the database answers, and valid against the contract.
@@ -38,10 +49,23 @@ describe('the final as /v1 answers it', () => {
     ).toBe(true);
   });
 
+  // What the final is must be what the database answers. The release is checked apart: the fixture
+  // names the release that ships (the whole catalogue's), not the three competitions' build.
   it.skipIf(!haveDb)(
-    'matches the database (regenerate: pnpm --filter @shotmap/ingest fixture)',
+    'has the final exactly as the database answers it (regenerate: pnpm --filter @shotmap/ingest fixture out/catalogue/shotmap.sqlite)',
     async () => {
-      expect(text).toBe(await buildFixture());
+      const built = JSON.parse(await buildFixture()) as typeof fixture;
+      expect(fixture.detail).toEqual(built.detail);
+      expect(fixture.shots).toEqual(built.shots);
+    },
+  );
+
+  it.skipIf(!existsSync(CATALOGUE_DB))(
+    'names the release the whole catalogue builds',
+    async () => {
+      const built = JSON.parse(await buildFixture(CATALOGUE_DB)) as typeof fixture;
+      expect(fixture.release).toBe(built.release);
+      expect(text).toBe(await buildFixture(CATALOGUE_DB));
     },
   );
 });

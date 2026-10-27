@@ -146,6 +146,35 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
     expect([...dates].sort()).toEqual(dates);
   });
 
+  it('pages newest first as exactly the reverse of oldest first, with its own cursor', async () => {
+    const all = async (order: 'oldest' | 'newest', limit: number) => {
+      const seen: number[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = MatchListSchema.parse(
+          await exportMatchList(db, { order, limit, ...(cursor ? { cursor } : {}) }),
+        );
+        seen.push(...page.items.map((m) => m.id));
+        cursor = page.next ?? undefined;
+      } while (cursor);
+      return seen;
+    };
+    const oldest = await all('oldest', 50);
+    const newest = await all('newest', 50);
+    expect(newest).toEqual([...oldest].reverse());
+    // A page size that does not divide the list, and one that does, land on the same order.
+    expect(await all('newest', 7)).toEqual(newest);
+    const latest = db.raw
+      .prepare(
+        "SELECT id FROM matches ORDER BY date DESC, COALESCE(kickoff, '') DESC, id DESC LIMIT 1",
+      )
+      .get() as { id: number };
+    expect(newest[0]).toBe(latest.id);
+    // The default is still oldest first.
+    const first = await exportMatchList(db, { limit: 5 });
+    expect(first.items.map((m) => m.id)).toEqual(oldest.slice(0, 5));
+  });
+
   it('never returns more than the page cap, whatever limit is asked', async () => {
     const page = await exportMatchList(db, { limit: 100_000 });
     expect(page.items.length).toBeLessThanOrEqual(LIMITS.matchesPageMax);
@@ -178,7 +207,7 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
   it('plans the match list on the date index', () => {
     const plan = db.raw
       .prepare(
-        "EXPLAIN QUERY PLAN SELECT m.id FROM matches m WHERE m.date >= ? AND (m.date, COALESCE(m.kickoff, ''), m.id) > (?, ?, ?) ORDER BY m.date, COALESCE(m.kickoff, ''), m.id LIMIT 51",
+        "EXPLAIN QUERY PLAN SELECT m.id FROM matches m WHERE m.date >= ? AND (m.date, COALESCE(m.kickoff, ''), m.id) > (?, ?, ?) ORDER BY m.date, m.kickoff, m.id LIMIT 51",
       )
       .all('2022-11-20', '2022-11-20', '', 0) as { detail: string }[];
     expect(plan.map((p) => p.detail).join(' | ')).toContain('matches_date');

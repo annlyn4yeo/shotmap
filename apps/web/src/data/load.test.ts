@@ -50,7 +50,9 @@ const SOURCES = {
 
 /** The release pin is the client's business, not what these tests are about. */
 const urlsOf = (mock: Mock) =>
-  mock.mock.calls.map((c) => String(c[0]).replace(/[?&]v=r[0-9a-f]{12}/, ''));
+  mock.mock.calls.map((c) =>
+    String(c[0]).replace(/[?&]v=\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}/, ''),
+  );
 
 let fetchMock: Mock<(url: string) => Promise<unknown>>;
 
@@ -278,7 +280,7 @@ describe('the api source', () => {
     await loadIndex();
     await loadMatch(10);
     const lastTwo = fetchMock.mock.calls.slice(-2).map((c) => c[0]);
-    expect(lastTwo.every((u) => u.includes('v=r'))).toBe(true);
+    expect(lastTwo.every((u) => u.includes(`v=${RELEASE}`))).toBe(true);
   });
 
   it('pins even its first request when the page was seeded with a release', async () => {

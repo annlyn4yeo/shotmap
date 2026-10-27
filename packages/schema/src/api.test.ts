@@ -148,12 +148,14 @@ describe('the density payload', () => {
 describe('the envelope', () => {
   const wrap = envelope(DensitySchema);
   const data = { step: 2, gx: [], gy: [], n: [], xg: [], goals: [] };
-  const ok = { release: 'r9733bd358bf4', attribution: ATTRIBUTION, data };
+  const ok = { release: '2026-10-27.9733bd358bf4', attribution: ATTRIBUTION, data };
 
   it('carries a release and the attribution on every response', () => {
     expect(wrap.safeParse(ok).success).toBe(true);
     expect(wrap.safeParse({ attribution: ATTRIBUTION, data }).success).toBe(false);
-    expect(wrap.safeParse({ release: 'r9733bd358bf4', data }).success).toBe(false);
+    expect(wrap.safeParse({ release: '2026-10-27.9733bd358bf4', data }).success).toBe(
+      false,
+    );
     expect(wrap.safeParse({ ...ok, release: 'v1' }).success).toBe(false);
   });
 
@@ -184,12 +186,26 @@ describe('the contract', () => {
     }
   });
 
-  it('has enums that match the legend of the static index.json, id for id', () => {
+  it('has every enum value of the static index.json, id for id, and only the extras named here', () => {
     const legend = JSON.parse(
       readFileSync(resolve(root, 'apps/web/public/data/index.json'), 'utf8'),
-    ) as { enums: Record<'outcome' | 'bodyPart' | 'shotType' | 'technique', unknown[]> };
-    for (const kind of ['outcome', 'bodyPart', 'shotType', 'technique'] as const)
-      expect(ENUMS[kind], kind).toEqual(legend.enums[kind]);
+    ) as {
+      enums: Record<'outcome' | 'bodyPart' | 'shotType' | 'technique', { id: number }[]>;
+    };
+    // What the whole catalogue has that the three competitions of the static files do not. Each is
+    // a decision: a new value in the data stops the ingest until it is listed here and in ENUMS.
+    const extras: Record<string, number[]> = { shotType: [65] };
+    for (const kind of ['outcome', 'bodyPart', 'shotType', 'technique'] as const) {
+      const have = new Set(legend.enums[kind].map((e) => e.id));
+      expect(
+        ENUMS[kind].filter((e) => have.has(e.id)),
+        kind,
+      ).toEqual(legend.enums[kind]);
+      expect(
+        ENUMS[kind].filter((e) => !have.has(e.id)).map((e) => e.id),
+        `${kind}: values the static files lack`,
+      ).toEqual(extras[kind] ?? []);
+    }
   });
 
   it('keeps docs/openapi.json equal to what the route table generates', () => {

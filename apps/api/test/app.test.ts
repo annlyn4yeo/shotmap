@@ -63,7 +63,9 @@ describe.skipIf(!haveDb)('the Worker', () => {
       const res = await get('/v1/meta');
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toMatch(/^application\/json/);
-      expect(res.headers.get('etag')).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+      expect(res.headers.get('etag')).toMatch(
+        /^"\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}-[0-9a-f]{16}"$/,
+      );
       expect(res.headers.get('cache-control')).toBe(CACHE_CONTROL.floating);
       expect(res.headers.get('x-data-release')).toMatch(RELEASE_PATTERN);
       const parsed = envelope(MetaSchema).parse(await res.json());
@@ -267,7 +269,9 @@ describe.skipIf(!haveDb)('the Worker', () => {
     it('is immutable for the current release, and gone for another', async () => {
       const pinned = await get(`/v1/search?q=mes&v=${release}`);
       expect(pinned.headers.get('cache-control')).toBe(CACHE_CONTROL.pinned);
-      expect(pinned.headers.get('etag')).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+      expect(pinned.headers.get('etag')).toMatch(
+        /^"\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}-[0-9a-f]{16}"$/,
+      );
       const stale = await get('/v1/search?q=mes&v=r000000000000');
       expect(stale.status).toBe(410);
     });
@@ -289,6 +293,20 @@ describe.skipIf(!haveDb)('the Worker', () => {
       } while (cursor);
       expect(pages).toBe(3);
       expect(new Set(seen).size).toBe(149);
+    });
+
+    it('lists the latest matches first when asked, and says what it does not understand', async () => {
+      const ids = async (query: string) =>
+        envelope(MatchListSchema)
+          .parse(await (await get(`/v1/matches?${query}`)).json())
+          .data.items.map((m) => m.id);
+      const oldest = await ids('limit=200');
+      expect(await ids('order=oldest&limit=200')).toEqual(oldest);
+      expect(await ids('order=newest&limit=200')).toEqual([...oldest].reverse());
+      for (const bad of ['order=latest', 'order=', 'order=newest&order=oldest']) {
+        const res = await get(`/v1/matches?${bad}`);
+        expect(res.status, bad).toBe(400);
+      }
     });
 
     it('filters by competition, season, stage, team and date', async () => {
@@ -449,13 +467,33 @@ describe.skipIf(!haveDb)('the Worker', () => {
     });
 
     it('answers 410 for another release, and 400 for something that is not one', async () => {
-      const gone = await get('/v1/meta?v=r000000000000');
+      const gone = await get('/v1/meta?v=2020-01-01.000000000000');
       expect(gone.status).toBe(410);
       expect(gone.headers.get('cache-control')).toBe('no-store');
       const err = ErrorSchema.parse(await gone.json());
       expect(err.error.code).toBe('release_gone');
       expect(err.error.message).toContain(release);
       expect((await get('/v1/meta?v=latest')).status).toBe(400);
+      expect((await get('/v1/meta?v=2020-13-01.nothex')).status).toBe(400);
+    });
+
+    it('is a release that is gone, not a malformed one, when a page built before releases had dates asks', async () => {
+      // `r` and 12 hex digits was the form until the release carried its date.
+      const res = await get(`/v1/matches/${FINAL}?v=r2422edac0126`);
+      expect(res.status).toBe(410);
+      expect(ErrorSchema.parse(await res.json()).error.message).toContain(release);
+    });
+
+    it('names the release by its date and its content hash, and serves both parts in /v1/meta', async () => {
+      expect(release).toMatch(/^\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}$/);
+      const meta = await (
+        await get('/v1/meta')
+      ).json<{
+        release: string;
+        data: { released: { date: string; hash: string } };
+      }>();
+      expect(`${meta.data.released.date}.${meta.data.released.hash}`).toBe(meta.release);
+      expect(meta.release).toBe(release);
     });
 
     it('gives the same ETag with and without the pin, and 304s when it is sent back', async () => {

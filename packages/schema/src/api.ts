@@ -243,6 +243,11 @@ export const MetaSchema = z.strictObject({
     /** The commit of statsbomb/open-data the data was built from. */
     ref: z.string().regex(/^[0-9a-f]{40}$/),
   }),
+  /** The release `release` names, in its two parts: when it was cut and what is in it. */
+  released: z.strictObject({
+    date: day,
+    hash: z.string().regex(/^[0-9a-f]{12}$/),
+  }),
   schemaVersion: int.min(1),
   counts: z.strictObject({
     matches: int.min(0),
@@ -354,7 +359,7 @@ export const ROUTES: readonly Route[] = [
   {
     id: 'listMatches',
     path: '/v1/matches',
-    summary: 'Browse matches, oldest first',
+    summary: 'Browse matches, oldest first unless `order=newest`',
     status: 'live',
     query: withPin({
       competition: qint.optional(),
@@ -367,6 +372,12 @@ export const ROUTES: readonly Route[] = [
         .optional()
         .describe(`1 to ${LIMITS.matchesPageMax}, default ${LIMITS.matchesPageDefault}`),
       cursor: z.string().optional(),
+      order: z
+        .enum(['oldest', 'newest'])
+        .optional()
+        .describe(
+          'oldest (the default) or newest first; a cursor belongs to the order that made it',
+        ),
     }),
     response: envelope(MatchListSchema),
     notes: `Never more than ${LIMITS.matchesPageMax} matches, whatever \`limit\` says.`,
