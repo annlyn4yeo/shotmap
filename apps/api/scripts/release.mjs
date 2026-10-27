@@ -93,7 +93,10 @@ function environment() {
 }
 
 function wrangler(args, { capture = true } = {}) {
-  const result = spawnSync('pnpm', ['exec', 'wrangler', ...args], {
+  // On Windows the shell joins the arguments with spaces, so one with spaces (a SQL command) is quoted.
+  const shell = process.platform === 'win32';
+  const quoted = shell ? args.map((a) => (/\s/.test(a) ? `"${a}"` : a)) : args;
+  const result = spawnSync('pnpm', ['exec', 'wrangler', ...quoted], {
     cwd: API,
     encoding: 'utf8',
     shell: process.platform === 'win32',
@@ -290,12 +293,10 @@ async function publishPart(env, m, { yes, paid, local, database }) {
 
 /** The last part is in: check the database holds the whole release, then say how to switch to it. */
 function finishParts(env, m, target, local) {
-  const query = join(RELEASES, '.query.sql');
   const ask = (sql) => {
-    // A file, not --command: a command with spaces in it does not survive the shell on Windows.
-    writeFileSync(query, `${sql};\n`);
+    // --command, not --file: for a file wrangler answers with a summary, not the rows.
     const args = local
-      ? ['d1', 'execute', 'DB', '--local', '--json', `--file=${query}`]
+      ? ['d1', 'execute', 'DB', '--local', '--json', '--command', sql]
       : [
           'd1',
           'execute',
@@ -304,7 +305,8 @@ function finishParts(env, m, target, local) {
           '--env',
           env.name,
           '--json',
-          `--file=${query}`,
+          '--command',
+          sql,
         ];
     const out = wrangler(args);
     try {
@@ -435,6 +437,19 @@ switch (command) {
       });
     else await publish(environment(), pick(option('release')), flag('yes'), flag('paid'));
     break;
+  case 'status': {
+    // Which parts are in, and what the database holds against what the release has.
+    const env = environment();
+    const m = pick(option('release'));
+    const target = flag('local') ? 'DB' : (option('database') ?? env.database);
+    const key = `${flag('local') ? 'local' : target}|${m.release}`;
+    const progress = readJson(PARTS, {})[key];
+    console.log(
+      `${m.release} into ${target}: ${progress?.done.length ?? 0} of ${m.parts.length} parts recorded as loaded`,
+    );
+    finishParts(env, m, target, flag('local'));
+    break;
+  }
   case 'rollback':
     await rollback(environment(), flag('yes'));
     break;

@@ -22,7 +22,12 @@
       // browser: the Pages preview of the web app (a different origin from this Worker, so CORS).
       "vars": { "WEB_ORIGIN": "https://preview.shotmap.pages.dev" },
       "d1_databases": [
-        { "binding": "DB", "database_name": "shotmap-staging", "database_id": "08d9f3ac-8ba7-414e-bbbf-7661f0634d97" }
+        { "binding": "DB", "database_name": "shotmap-staging", "database_id": "08d9f3ac-8ba7-414e-bbbf-7661f0634d97" },
+        // The next release, loaded a part a day (the Free plan writes 100,000 rows a day, the
+        // whole catalogue is 460,718): nothing reads it until it is complete and `DB` above is
+        // pointed at it (docs/DEPLOY-API.md). The Worker does not use this binding; wrangler
+        // needs it here to address the database by name.
+        { "binding": "DB_NEXT", "database_name": "shotmap-staging-next", "database_id": "7c2cc659-55a9-4b3c-86c1-6bae83f1f98a" }
       ]
       // With a domain on Cloudflare (decision Q2, the default), route /v1/* on it so it is same-origin:
       // "routes": [{ "pattern": "staging.example.com/v1/*", "zone_name": "example.com" }]
