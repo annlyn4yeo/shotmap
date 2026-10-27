@@ -109,7 +109,9 @@ describe.skipIf(!haveDb)('the Worker', () => {
       for (const path of ['/v1/players/1', '/v1/players/1/shots']) {
         const res = await get(path);
         expect(res.status, path).toBe(404);
-        expect(ErrorSchema.parse(await res.json()).error.code).toBe('not_found');
+        const { error } = ErrorSchema.parse(await res.json());
+        expect(error.code).toBe('not_found');
+        expect(error.message, 'it names what is missing').toBe('no such player');
       }
       expect((await get('/v1/players/abc')).status).toBe(400);
     });
@@ -407,7 +409,9 @@ describe.skipIf(!haveDb)('the Worker', () => {
         expect(res.status).toBe(404);
         expect(res.headers.get('content-type')).toMatch(/^application\/json/);
         expect(res.headers.get('cache-control')).toBe(CACHE_CONTROL.floating);
-        expect(ErrorSchema.parse(await res.json()).error.code).toBe('not_found');
+        const { error } = ErrorSchema.parse(await res.json());
+        expect(error.code).toBe('not_found');
+        expect(error.message).toBe('no such match');
       }
       for (const path of [
         '/v1/matches/abc',

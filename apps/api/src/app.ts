@@ -144,12 +144,14 @@ export function createApp(options: AppOptions = {}) {
 
   /**
    * The whole life of a GET: allow-list, release pin, ETag and 304, Cache API, D1, headers.
-   * `produce` returns the `data` payload, or undefined for "no such thing" (a cacheable 404).
+   * `produce` returns the `data` payload, or undefined for "no such thing" (a cacheable 404 that
+   * says `missing`).
    */
   async function serve(
     c: Context<{ Bindings: Env }>,
     route: RouteId,
     produce: (db: Db, query: readonly [string, string][]) => Promise<unknown>,
+    missing = 'no such match',
   ): Promise<Response> {
     const env = c.env;
     try {
@@ -198,12 +200,7 @@ export function createApp(options: AppOptions = {}) {
       const data = await produce(db, rest);
       const response =
         data === undefined
-          ? json(
-              env,
-              404,
-              { error: { code: 'not_found', message: 'no such match' } },
-              headers,
-            )
+          ? json(env, 404, { error: { code: 'not_found', message: missing } }, headers)
           : json(env, 200, { release, attribution: ATTRIBUTION, data }, headers);
       if (options.cache) later(c, options.cache.put(key, response.clone()));
       response.headers.set('x-cache', 'MISS');
@@ -236,21 +233,29 @@ export function createApp(options: AppOptions = {}) {
   );
 
   app.get('/v1/players/:id', (c) =>
-    serve(c, 'getPlayer', (db) =>
-      exportPlayer(db, idOf(c.req.param('id'), 'the player id')),
+    serve(
+      c,
+      'getPlayer',
+      (db) => exportPlayer(db, idOf(c.req.param('id'), 'the player id')),
+      'no such player',
     ),
   );
 
   app.get('/v1/players/:id/shots', (c) =>
-    serve(c, 'getPlayerShots', (db, query) => {
-      const { filters, limit } = playerShotsQuery(query);
-      return exportPlayerShots(
-        db,
-        idOf(c.req.param('id'), 'the player id'),
-        filters,
-        limit,
-      );
-    }),
+    serve(
+      c,
+      'getPlayerShots',
+      (db, query) => {
+        const { filters, limit } = playerShotsQuery(query);
+        return exportPlayerShots(
+          db,
+          idOf(c.req.param('id'), 'the player id'),
+          filters,
+          limit,
+        );
+      },
+      'no such player',
+    ),
   );
 
   app.get('/v1/search', (c) =>
