@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Shot } from '../data/shots';
+import { useEffect, useMemo } from 'preact/hooks';
 import { OUTCOMES, PITCH, type Outcome } from '@shotmap/schema';
-import { playerCounts, placeShootout, tally, teamsOf } from '../lib/derive';
-import { isFiltered } from '../lib/route';
+import { shotLabel, type Shot } from '../data/shots';
+import { placeShootout, playerCounts, tally, teamsOf } from '../lib/derive';
 import { OUTCOME_LABEL, markRadius } from '../lib/geometry';
-import { BOTH, WIDE, useMedia, useSize, useWidth } from '../lib/hooks';
+import { BOTH, useMedia } from '../lib/hooks';
+import { isFiltered } from '../lib/route';
 import { useStore } from '../lib/store';
 import { resetFilters, store, toggleOutcome, update } from '../state/app';
 import { DetailCard } from './DetailCard';
 import { OutcomeFilter } from './OutcomeFilter';
-import { Pitch } from './Pitch';
-import { ShotLayer, type MapShot } from './ShotLayer';
-import { StatsStrip } from './StatsStrip';
+import type { MapShot } from './ShotLayer';
+import { ShotPanel } from './ShotPanel';
 import { EmptyNote } from './States';
 import { Toolbar } from './Toolbar';
-import { fitFrom, frameFor } from './frame';
+import { HALFWAY, delayFor, useMapFrame } from './useMapFrame';
 import './shotmap.css';
 
 interface ShotMapProps {
@@ -23,11 +22,8 @@ interface ShotMapProps {
   shots: readonly Shot[];
 }
 
-const HALFWAY = PITCH.length / 2;
-/** The intro lasts about this long, then the layer goes quiet so filtering never replays it. */
-const INTRO_MS = 3200;
-/** Match minute to intro delay: the match plays out over about two seconds. */
-const delayFor = (min: number) => Math.round(80 + (Math.min(min, 125) / 125) * 1700);
+/** A mark with the shot it is for, which the cards and the per-team split need. */
+type Placed = MapShot & { shot: Shot };
 
 /** Module level, so the layer's props stay the same between renders. */
 const selectShot = (id: number | null): void => update({ shot: id });
@@ -44,41 +40,17 @@ function describe(name: string, shots: readonly Shot[]): string {
 }
 
 /**
- * Where to start the crop. Nearly every shot is taken within 35 yards of goal,
- * so the pitch is shown from just behind the deepest shot in the match, in
- * steps of 10 yards. Both teams share it, so the two panels compare directly.
+ * A match: the pipeline from the URL's filters (team, player, outcomes, shootout, the selected
+ * shot) to what each team's panel draws. The panels themselves are `ShotPanel`.
  */
-function cropFrom(shots: readonly Shot[]): number {
-  const xs = shots.filter((s) => !s.shootout && s.x >= HALFWAY).map((s) => s.x);
-  const deepest = xs.length ? Math.min(...xs) : HALFWAY;
-  return Math.min(100, Math.max(HALFWAY, Math.floor((deepest - 3) / 10) * 10));
-}
-
 export function ShotMap({ names, shots }: ShotMapProps) {
   const route = useStore(store, (s) => s.route);
-  const wide = useMedia(WIDE);
-  const reduced = useMedia('(prefers-reduced-motion: reduce)');
   const roomy = useMedia(BOTH);
   const teamView = route.team ?? (roomy ? 'both' : 'home');
   const teams = teamsOf(teamView);
 
-  const dataFrom = useMemo(() => cropFrom(shots), [shots]);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const stage = useSize(stageRef);
-  // Wide: the map fills the room its panel has, showing more pitch when there is height to spare.
-  const from = wide ? fitFrom(stage, dataFrom) : dataFrom;
-  const frame = useMemo(() => frameFor('half', 'vertical', from), [from]);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const width = useWidth(mapRef);
-  const unitPx = (width || 343) / frame.w;
-
-  const [introTimer, setIntroTimer] = useState(true);
-  const intro = introTimer && !reduced;
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIntroTimer(false), INTRO_MS);
-    return () => clearTimeout(timer);
-  }, []);
+  // Both teams share a crop, so the two panels compare directly.
+  const { stageRef, mapRef, from, frame, unitPx, intro } = useMapFrame(shots);
 
   // Derived data, each step memoised on only what it reads.
   const hidden = useMemo(() => new Set<Outcome>(route.hide), [route.hide]);
@@ -113,11 +85,16 @@ export function ShotMap({ names, shots }: ShotMapProps) {
     // `teams` is derived from teamView.
   }, [pool, teamView, hidden]);
 
-  const mapShots: MapShot[] = useMemo(
+  const mapShots: Placed[] = useMemo(
     () =>
       view.shown.map((shot) => {
         const at = placed.get(shot.id) ?? { x: shot.x, y: shot.y };
         return {
+          // In a match a shot is known by its position in it.
+          id: shot.id,
+          outcome: shot.outcome,
+          xg: shot.xg,
+          label: shotLabel(shot),
           shot,
           x: at.x,
           y: at.y,
@@ -140,7 +117,7 @@ export function ShotMap({ names, shots }: ShotMapProps) {
   );
   const homeShots = useMemo(() => inScope.filter((x) => x.team === 0).length, [inScope]);
   const awayShots = useMemo(() => inScope.filter((x) => x.team === 1).length, [inScope]);
-  const selected = mapShots.find((x) => x.shot.id === route.shot);
+  const selected = mapShots.find((x) => x.id === route.shot);
 
   useEffect(() => {
     if (route.shot === null) return;
@@ -157,56 +134,47 @@ export function ShotMap({ names, shots }: ShotMapProps) {
     const chosen = selected && selected.shot.team === t ? selected : undefined;
     const anchor = chosen ? frame.place(chosen.x, chosen.y) : null;
     return (
-      <section
-        class="panel"
-        aria-label={`${names[t]} shots`}
+      <ShotPanel
         key={t}
-        style={`view-transition-name:panel-${t}`}
-      >
-        <h2 class="panel-name">{names[t]}</h2>
-        <StatsStrip shots={byTeam[t]} />
-        <div ref={first ? stageRef : null} class="stage">
-          <div class="map-frame" style={`--ratio:${(frame.w / frame.h).toFixed(4)}`}>
-            <div ref={first ? mapRef : null} class="map" data-intro={intro}>
-              <Pitch
-                title={`Shot map of ${names[t]}, the last ${PITCH.length - from} yards before goal. ${describe(
-                  names[t],
-                  mine.map((s) => s.shot),
-                )}`}
-                mode="half"
-                orientation="vertical"
-                from={from}
-              />
-              <ShotLayer
-                frame={frame}
-                shots={mine}
-                selectedId={chosen?.shot.id ?? null}
-                intro={intro}
-                label={`${names[t]} shots. Use the arrow keys to move between them, Enter to open one.`}
-                onSelect={selectShot}
-              />
-            </div>
-            {mine.length === 0 ? (
-              <EmptyNote
-                filtered={shots.some((s) => s.team === t && !s.shootout)}
-                team={names[t]}
-                onReset={resetFilters}
-              />
-            ) : null}
-            {chosen && anchor ? (
-              <DetailCard
-                shot={chosen.shot}
-                team={names[t]}
-                anchor={{
-                  x: ((anchor.x - frame.x) / frame.w) * 100,
-                  y: ((anchor.y - frame.y) / frame.h) * 100,
-                }}
-                onClose={() => update({ shot: null })}
-              />
-            ) : null}
-          </div>
-        </div>
-      </section>
+        name={names[t]}
+        stats={byTeam[t]}
+        frame={frame}
+        from={from}
+        intro={intro}
+        shots={mine}
+        selectedId={chosen?.id ?? null}
+        onSelect={selectShot}
+        title={`Shot map of ${names[t]}, the last ${PITCH.length - from} yards before goal. ${describe(
+          names[t],
+          mine.map((s) => s.shot),
+        )}`}
+        label={`${names[t]} shots. Use the arrow keys to move between them, Enter to open one.`}
+        stageRef={first ? stageRef : null}
+        mapRef={first ? mapRef : null}
+        transitionName={`panel-${t}`}
+        empty={
+          mine.length === 0 ? (
+            <EmptyNote
+              filtered={shots.some((s) => s.team === t && !s.shootout)}
+              team={names[t]}
+              onReset={resetFilters}
+            />
+          ) : null
+        }
+        card={
+          chosen && anchor ? (
+            <DetailCard
+              shot={chosen.shot}
+              team={names[t]}
+              anchor={{
+                x: ((anchor.x - frame.x) / frame.w) * 100,
+                y: ((anchor.y - frame.y) / frame.h) * 100,
+              }}
+              onClose={() => update({ shot: null })}
+            />
+          ) : null
+        }
+      />
     );
   };
 
