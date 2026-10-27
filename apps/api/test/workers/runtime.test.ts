@@ -89,7 +89,12 @@ describe('the Worker inside workerd, on a real D1', () => {
   });
 
   it('never answers /v1 with HTML', async () => {
-    for (const path of ['/v1/nope', '/v1/players/5503', '/v1/matches/abc']) {
+    for (const path of [
+      '/v1/nope',
+      '/v1/compare',
+      '/v1/matches/abc',
+      '/v1/players/5503/density',
+    ]) {
       const res = await get(path);
       expect(res.headers.get('content-type'), path).toMatch(/^application\/json/);
       expect(ErrorSchema.parse(await res.json()).error.message).toBeTruthy();

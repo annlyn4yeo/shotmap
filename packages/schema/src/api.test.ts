@@ -92,15 +92,34 @@ describe('the shots payload', () => {
 
   it('needs match in a player payload, sorted, with seq increasing inside a match', () => {
     const base = shots();
-    const cross = { n: 3, cols: { ...base.cols, match: [10, 10, 12] } };
+    const cross = { n: 3, cols: { ...base.cols, match: [10, 10, 12] }, truncated: false };
     expect(PlayerShotsSchema.safeParse(cross).success).toBe(true);
+    expect(PlayerShotsSchema.safeParse({ ...cross, truncated: true }).success).toBe(true);
     expect(
-      PlayerShotsSchema.safeParse({ n: 3, cols: { ...base.cols, match: [12, 10, 10] } })
-        .success,
+      PlayerShotsSchema.safeParse({
+        n: 3,
+        cols: { ...base.cols, match: [12, 10, 10] },
+        truncated: false,
+      }).success,
     ).toBe(false);
-    expect(PlayerShotsSchema.safeParse(base).success).toBe(false);
-    const seq = { n: 3, cols: { ...base.cols, seq: [4, 2, 0], match: [10, 10, 10] } };
+    expect(PlayerShotsSchema.safeParse({ ...base, truncated: false }).success).toBe(
+      false,
+    );
+    const seq = {
+      n: 3,
+      cols: { ...base.cols, seq: [4, 2, 0], match: [10, 10, 10] },
+      truncated: false,
+    };
     expect(PlayerShotsSchema.safeParse(seq).success).toBe(false);
+  });
+
+  it('says whether it left shots out, and a payload that does not say is refused', () => {
+    const base = shots();
+    const cols = { ...base.cols, match: [10, 10, 12] };
+    expect(PlayerShotsSchema.safeParse({ n: 3, cols }).success).toBe(false);
+    expect(PlayerShotsSchema.safeParse({ n: 3, cols, truncated: 'yes' }).success).toBe(
+      false,
+    );
   });
 
   it('names a shot globally as match * 1000 + seq', () => {

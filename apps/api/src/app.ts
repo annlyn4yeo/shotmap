@@ -18,6 +18,8 @@ import {
   exportMatchList,
   exportMatchShots,
   exportMeta,
+  exportPlayer,
+  exportPlayerShots,
   exportSearch,
   releaseOf,
   type Db,
@@ -28,6 +30,7 @@ import {
   allowedQuery,
   idOf,
   matchQuery,
+  playerShotsQuery,
   searchQuery,
   type RouteId,
 } from './params';
@@ -230,6 +233,24 @@ export function createApp(options: AppOptions = {}) {
     serve(c, 'getMatchShots', (db) =>
       exportMatchShots(db, idOf(c.req.param('id'), 'the match id')),
     ),
+  );
+
+  app.get('/v1/players/:id', (c) =>
+    serve(c, 'getPlayer', (db) =>
+      exportPlayer(db, idOf(c.req.param('id'), 'the player id')),
+    ),
+  );
+
+  app.get('/v1/players/:id/shots', (c) =>
+    serve(c, 'getPlayerShots', (db, query) => {
+      const { filters, limit } = playerShotsQuery(query);
+      return exportPlayerShots(
+        db,
+        idOf(c.req.param('id'), 'the player id'),
+        filters,
+        limit,
+      );
+    }),
   );
 
   app.get('/v1/search', (c) =>

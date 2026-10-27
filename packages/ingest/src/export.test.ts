@@ -40,6 +40,16 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
   const matchIds = ids('SELECT id FROM matches ORDER BY id');
   const playerIds = ids('SELECT id FROM players ORDER BY id');
   const MESSI = 5503;
+  /** A player's shots, which must exist for the ids these tests use. */
+  const shotsOf = async (
+    id: number,
+    filters?: Parameters<typeof exportPlayerShots>[2],
+    limit?: number,
+  ) => {
+    const found = await exportPlayerShots(db, id, filters, limit);
+    if (!found) throw new Error(`no player ${id}`);
+    return found;
+  };
 
   it('wraps in a release and the attribution', async () => {
     const release = await releaseOf(db);
@@ -185,22 +195,94 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
   });
 
   it("gives a player's shots across matches, sorted by match", async () => {
-    const shots = PlayerShotsSchema.parse(await exportPlayerShots(db, MESSI));
+    const shots = PlayerShotsSchema.parse(await shotsOf(MESSI));
     expect(shots.n).toBeGreaterThan(100);
     expect(new Set(shots.cols.match).size).toBeGreaterThan(30);
     expect(shots.cols.player.every((p) => p === MESSI)).toBe(true);
-    const open = await exportPlayerShots(db, MESSI, { period: 'open' });
+    const open = await shotsOf(MESSI, { period: 'open' });
     expect(open.cols.period.every((p) => p <= 4)).toBe(true);
-    const goals = await exportPlayerShots(db, MESSI, { outcome: ['goal'] });
+    const goals = await shotsOf(MESSI, { outcome: ['goal'] });
     const totals = PlayerSchema.parse(await exportPlayer(db, MESSI)).totals;
     expect(goals.n).toBe(totals.goals + goals.cols.period.filter((p) => p === 5).length);
-    const cup = await exportPlayerShots(db, MESSI, { competition: 43, season: 106 });
+    const cup = await shotsOf(MESSI, { competition: 43, season: 106 });
     expect(cup.n).toBeLessThan(shots.n);
-    for (const id of playerIds) PlayerShotsSchema.parse(await exportPlayerShots(db, id));
+    for (const id of playerIds) PlayerShotsSchema.parse(await shotsOf(id));
+  });
+
+  it('lists the seasons a player shot in, oldest first, and they add up to the career', async () => {
+    const messi = PlayerSchema.parse(await exportPlayer(db, MESSI));
+    expect(messi.seasons.map((s) => `${s.competition.name} ${s.season.name}`)).toEqual([
+      'La Liga 2018/2019',
+      'FIFA World Cup 2022',
+    ]);
+    expect(messi.seasons.map((s) => s.matches)).toEqual([34, 7]);
+    expect(messi.totals.matches).toBe(41);
+    for (const id of playerIds) {
+      const p = PlayerSchema.parse(await exportPlayer(db, id));
+      for (const key of ['matches', 'shots', 'goals', 'onTarget'] as const)
+        expect(
+          p.seasons.reduce((n, s) => n + s[key], 0),
+          `${id} ${key}`,
+        ).toBe(p.totals[key]);
+      expect(p.seasons.reduce((n, s) => n + s.xg, 0)).toBeCloseTo(p.totals.xg, 2);
+    }
+  });
+
+  it("keeps a player's seasons in step with the same filter on their shots", async () => {
+    const messi = PlayerSchema.parse(await exportPlayer(db, MESSI));
+    for (const s of messi.seasons) {
+      const rows = await shotsOf(MESSI, {
+        competition: s.competition.id,
+        season: s.season.id,
+        period: 'open',
+      });
+      expect(rows.n, s.season.name).toBe(s.shots);
+      expect(new Set(rows.cols.match).size).toBe(s.matches);
+    }
+  });
+
+  it("filters a player's shots by shot type, and by several at once", async () => {
+    const all = await shotsOf(MESSI);
+    const penalties = await shotsOf(MESSI, { type: [88] });
+    expect(penalties.n).toBeGreaterThan(0);
+    expect(penalties.n).toBeLessThan(all.n);
+    expect(penalties.cols.type.every((t) => t === 88)).toBe(true);
+    const dead = await shotsOf(MESSI, { type: [88, 62, 61] });
+    expect(dead.cols.type.every((t) => [88, 62, 61].includes(t))).toBe(true);
+    const open = await shotsOf(MESSI, { type: [87] });
+    expect(open.n + dead.n).toBe(all.n);
+    expect(
+      await shotsOf(MESSI, { type: [88], outcome: ['goal'], period: 'open' }),
+    ).toMatchObject({
+      truncated: false,
+    });
+  });
+
+  it("limits a player's shots and says when it left some out", async () => {
+    const all = await shotsOf(MESSI);
+    expect(all.truncated).toBe(false);
+    const few = await shotsOf(MESSI, {}, 10);
+    expect(few.n).toBe(10);
+    expect(few.truncated).toBe(true);
+    // The first ones, by match then position, exactly as the whole list starts.
+    expect(few.cols.shot).toEqual(all.cols.shot.slice(0, 10));
+    // The boundary: exactly as many as there are is not truncated; one fewer is.
+    expect((await shotsOf(MESSI, {}, all.n)).truncated).toBe(false);
+    const short = await shotsOf(MESSI, {}, all.n - 1);
+    expect(short.truncated).toBe(true);
+    expect(short.n).toBe(all.n - 1);
+    // A limit is never trusted: nothing above the ceiling, nothing below one row.
+    expect((await shotsOf(MESSI, {}, 1e9)).n).toBe(all.n);
+    expect((await shotsOf(MESSI, {}, 0)).n).toBe(1);
+  });
+
+  it('says there is no such player instead of giving none of their shots', async () => {
+    expect(await exportPlayerShots(db, 1)).toBeUndefined();
+    expect(await exportPlayer(db, 1)).toBeUndefined();
   });
 
   it("counts a player's shots into bins that add up", async () => {
-    const shots = await exportPlayerShots(db, MESSI, { period: 'open' });
+    const shots = await shotsOf(MESSI, { period: 'open' });
     const totals = PlayerSchema.parse(await exportPlayer(db, MESSI)).totals;
     for (const step of LIMITS.densitySteps) {
       const d = DensitySchema.parse(

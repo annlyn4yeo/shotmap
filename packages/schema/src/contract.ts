@@ -38,6 +38,8 @@ export const LIMITS = {
   searchPerKind: 20,
   /** Rows in one player's shots payload. Past it, ask for density instead. */
   playerShotsMax: 10_000,
+  /** What a player's shots are limited to when `limit` is not asked for. */
+  playerShotsDefault: 1000,
   densitySteps: [1, 2, 4, 5, 10],
   /** A match has under 1,000 shots (SHOT_ID_FACTOR), so this bounds its payload. */
   matchShotsMax: 1000,
@@ -65,6 +67,8 @@ export const QUERY_ALLOW = {
   ],
   getMatch: ['v'],
   getMatchShots: ['v'],
+  getPlayer: ['v'],
+  getPlayerShots: ['competition', 'season', 'period', 'outcome', 'type', 'limit', 'v'],
   search: ['q', 'limit', 'v'],
 } as const;
 

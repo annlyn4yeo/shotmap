@@ -518,6 +518,7 @@
       "get": {
         "operationId": "getPlayer",
         "summary": "A player, summed across every team they shot for",
+        "description": "Open play only. `seasons` is the table of competition seasons, oldest first, and its rows add up to `totals`.",
         "parameters": [
           {
             "name": "id",
@@ -602,7 +603,7 @@
       "get": {
         "operationId": "getPlayerShots",
         "summary": "A player's shots across matches, as columns",
-        "description": "Sorted by match, then seq. Answers 400 `too_many_rows` above 10000 rows: ask for density instead.",
+        "description": "Sorted by match, then seq. Never more than `limit` rows (at most 10000); `truncated` says whether there were more, and the rows are the first ones. `season` needs `competition`. Open play and the shootout are both included unless `period` says otherwise.",
         "parameters": [
           {
             "name": "id",
@@ -656,6 +657,27 @@
             "schema": {
               "type": "string",
               "description": "Comma-separated outcome groups to keep: goal, saved, off, blocked, post"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated shot type ids to keep: 61 Corner, 62 Free Kick, 87 Open Play, 88 Penalty",
+            "schema": {
+              "description": "Comma-separated shot type ids to keep: 61 Corner, 62 Free Kick, 87 Open Play, 88 Penalty",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "1 to 10000, default 1000",
+            "schema": {
+              "description": "1 to 10000, default 1000",
+              "type": "string",
+              "pattern": "^\\d{1,9}$"
             }
           },
           {
@@ -796,6 +818,16 @@
             "schema": {
               "type": "string",
               "description": "Comma-separated outcome groups to keep: goal, saved, off, blocked, post"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated shot type ids to keep: 61 Corner, 62 Free Kick, 87 Open Play, 88 Penalty",
+            "schema": {
+              "description": "Comma-separated shot type ids to keep: 61 Corner, 62 Free Kick, 87 Open Play, 88 Penalty",
+              "type": "string"
             }
           },
           {
@@ -2116,6 +2148,85 @@
                   "xg"
                 ],
                 "additionalProperties": false
+              },
+              "seasons": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "competition": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "season": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "matches": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "shots": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "goals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "onTarget": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "xg": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "competition",
+                    "season",
+                    "matches",
+                    "shots",
+                    "goals",
+                    "onTarget",
+                    "xg"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -2123,7 +2234,8 @@
               "name",
               "fullName",
               "teams",
-              "totals"
+              "totals",
+              "seasons"
             ],
             "additionalProperties": false
           }
@@ -2355,11 +2467,15 @@
                   "match"
                 ],
                 "additionalProperties": false
+              },
+              "truncated": {
+                "type": "boolean"
               }
             },
             "required": [
               "n",
-              "cols"
+              "cols",
+              "truncated"
             ],
             "additionalProperties": false
           }
@@ -2590,6 +2706,85 @@
                       "xg"
                     ],
                     "additionalProperties": false
+                  },
+                  "seasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "competition": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "season": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "matches": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "shots": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "goals": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "onTarget": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "xg": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "competition",
+                        "season",
+                        "matches",
+                        "shots",
+                        "goals",
+                        "onTarget",
+                        "xg"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -2597,7 +2792,8 @@
                   "name",
                   "fullName",
                   "teams",
-                  "totals"
+                  "totals",
+                  "seasons"
                 ],
                 "additionalProperties": false
               },
@@ -2680,6 +2876,85 @@
                       "xg"
                     ],
                     "additionalProperties": false
+                  },
+                  "seasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "competition": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "season": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "matches": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "shots": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "goals": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "onTarget": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "xg": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "competition",
+                        "season",
+                        "matches",
+                        "shots",
+                        "goals",
+                        "onTarget",
+                        "xg"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -2687,7 +2962,8 @@
                   "name",
                   "fullName",
                   "teams",
-                  "totals"
+                  "totals",
+                  "seasons"
                 ],
                 "additionalProperties": false
               }

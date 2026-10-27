@@ -300,6 +300,8 @@ export interface ShotFilters {
   season?: number;
   period?: 'open' | 'shootout';
   outcome?: Outcome[];
+  /** StatsBomb shot type ids (ENUMS.shotType): corner, free kick, open play, penalty. */
+  type?: number[];
 }
 
 function filterSql(f: ShotFilters): { where: string; params: Value[] } {
@@ -319,24 +321,39 @@ function filterSql(f: ShotFilters): { where: string; params: Value[] } {
     parts.push(
       `s.outcome_group IN (${f.outcome.map((o) => OUTCOMES.indexOf(o)).join(',')})`,
     );
+  if (f.type?.length) {
+    parts.push(`s.type IN (${f.type.map(() => '?').join(',')})`);
+    params.push(...f.type);
+  }
   return { where: parts.map((p) => ` AND ${p}`).join(''), params };
 }
 
-/** A player's shots across matches, sorted by match then seq. */
+/**
+ * A player's shots across matches, sorted by match then seq. At most `limit` of them, never more
+ * than LIMITS.playerShotsMax; `truncated` says whether there were more, and what is returned is
+ * the first ones. Undefined for a player who does not exist (an unknown id is not "no shots").
+ */
 export async function exportPlayerShots(
   db: Db,
   playerId: number,
   f: ShotFilters = {},
-): Promise<PlayerShots> {
+  limit: number = LIMITS.playerShotsDefault,
+): Promise<PlayerShots | undefined> {
   const { where, params } = filterSql(f);
+  const cap = Math.max(1, Math.min(Math.trunc(limit), LIMITS.playerShotsMax));
   const from = `FROM shots s JOIN matches m ON m.id = s.match_id WHERE s.player_id = ?${where}`;
-  const found = await db.all(
-    `SELECT ${COLUMNS}, s.match_id AS match ${from} ORDER BY s.match_id, s.seq LIMIT ${LIMITS.playerShotsMax + 1}`,
-    [playerId, ...params],
-  );
-  if (found.length > LIMITS.playerShotsMax)
-    throw new TooManyRows(`more than ${LIMITS.playerShotsMax} shots: ask for density`);
-  return columnsOf(found, true) as PlayerShots;
+  const [who = [], found = []] = await db.batch([
+    { sql: 'SELECT 1 AS found FROM players WHERE id = ?', params: [playerId] },
+    {
+      // One more than asked for, to know whether there is more.
+      sql: `SELECT ${COLUMNS}, s.match_id AS match ${from} ORDER BY s.match_id, s.seq LIMIT ${cap + 1}`,
+      params: [playerId, ...params],
+    },
+  ]);
+  if (who.length === 0) return undefined;
+  const truncated = found.length > cap;
+  const columns = columnsOf(truncated ? found.slice(0, cap) : found, true);
+  return { ...columns, truncated } as PlayerShots;
 }
 
 /** A player's shots counted into `step`-yard squares. Sparse. */
@@ -369,7 +386,7 @@ export async function exportDensity(
 
 /** A player, summed over every team. Open play only, as the product counts it. */
 export async function exportPlayer(db: Db, id: number): Promise<Player | undefined> {
-  const [who = [], totals = [], teams = []] = await db.batch([
+  const [who = [], totals = [], teams = [], seasons = []] = await db.batch([
     { sql: 'SELECT id, name, full_name FROM players WHERE id = ?', params: [id] },
     {
       sql: `SELECT COUNT(DISTINCT match_id) AS matches, COUNT(*) AS shots, COALESCE(SUM(outcome_group = 0), 0) AS goals,
@@ -380,6 +397,20 @@ export async function exportPlayer(db: Db, id: number): Promise<Player | undefin
     {
       sql: `SELECT t.id, t.name, COUNT(*) AS shots FROM shots s JOIN teams t ON t.id = s.team_id
             WHERE s.player_id = ? AND s.period <= 4 GROUP BY t.id ORDER BY shots DESC, t.name LIMIT 50`,
+      params: [id],
+    },
+    {
+      // One row per competition season the player shot in, oldest first.
+      sql: `SELECT c.id AS cid, c.name AS cname, se.id AS sid, se.name AS sname,
+                   COUNT(DISTINCT s.match_id) AS matches, COUNT(*) AS shots,
+                   COALESCE(SUM(s.outcome_group = 0), 0) AS goals,
+                   COALESCE(SUM(s.outcome_group IN (0, 1)), 0) AS onTarget,
+                   COALESCE(SUM(s.xg), 0) AS xg, MIN(m.date) AS first
+            FROM shots s JOIN matches m ON m.id = s.match_id
+            JOIN competitions c ON c.id = m.competition_id
+            JOIN seasons se ON se.competition_id = m.competition_id AND se.id = m.season_id
+            WHERE s.player_id = ? AND s.period <= 4
+            GROUP BY m.competition_id, m.season_id ORDER BY first, c.name LIMIT ${LIMITS.metaRowsMax}`,
       params: [id],
     },
   ]);
@@ -398,6 +429,15 @@ export async function exportPlayer(db: Db, id: number): Promise<Player | undefin
       onTarget: num(t.onTarget),
       xg: Math.round(num(t.xg) * 1000) / 1000,
     },
+    seasons: seasons.map((r) => ({
+      competition: { id: num(r.cid), name: str(r.cname) },
+      season: { id: num(r.sid), name: str(r.sname) },
+      matches: num(r.matches),
+      shots: num(r.shots),
+      goals: num(r.goals),
+      onTarget: num(r.onTarget),
+      xg: Math.round(num(r.xg) * 1000) / 1000,
+    })),
   };
 }
 

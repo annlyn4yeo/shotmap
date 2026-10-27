@@ -13,6 +13,8 @@ import {
   MatchListSchema,
   MatchShotsSchema,
   MetaSchema,
+  PlayerSchema,
+  PlayerShotsSchema,
   SearchSchema,
   ROUTES,
   envelope,
@@ -68,6 +70,116 @@ describe.skipIf(!haveDb)('the Worker', () => {
       expect(parsed.attribution).toEqual(ATTRIBUTION);
       expect(parsed.release).toBe(res.headers.get('x-data-release'));
       expect(parsed.data.counts.shots).toBe(3721);
+    });
+  });
+
+  describe('/v1/players', () => {
+    const MESSI = 5503;
+    const profile = async (id = MESSI) => {
+      const res = await get(`/v1/players/${id}`);
+      expect(res.status).toBe(200);
+      return envelope(PlayerSchema).parse(await res.json()).data;
+    };
+    const shots = async (query = '', id = MESSI) => {
+      const res = await get(`/v1/players/${id}/shots${query ? `?${query}` : ''}`);
+      expect(res.status, query).toBe(200);
+      return envelope(PlayerShotsSchema).parse(await res.json()).data;
+    };
+
+    it('gives the profile: names, the teams, the career, and the season table that adds up to it', async () => {
+      const messi = await profile();
+      expect(messi.name).toBe('Lionel Messi');
+      expect(messi.teams.map((t) => t.name).sort()).toEqual(['Argentina', 'Barcelona']);
+      expect(messi.seasons.map((s) => `${s.competition.name} ${s.season.name}`)).toEqual([
+        'La Liga 2018/2019',
+        'FIFA World Cup 2022',
+      ]);
+      expect(messi.totals.matches).toBe(41);
+      for (const key of ['matches', 'shots', 'goals', 'onTarget'] as const)
+        expect(messi.seasons.reduce((n, s) => n + s[key], 0)).toBe(messi.totals[key]);
+    });
+
+    it('is a few statements however many seasons there are', async () => {
+      shim.reset();
+      await get(`/v1/players/${MESSI}`);
+      expect(shim.statements.length).toBeLessThanOrEqual(5);
+    });
+
+    it('says there is no such player, for the profile and for the shots', async () => {
+      for (const path of ['/v1/players/1', '/v1/players/1/shots']) {
+        const res = await get(path);
+        expect(res.status, path).toBe(404);
+        expect(ErrorSchema.parse(await res.json()).error.code).toBe('not_found');
+      }
+      expect((await get('/v1/players/abc')).status).toBe(400);
+    });
+
+    it('gives shots as columns with the match, sorted by match, and no more than were asked for', async () => {
+      const all = await shots();
+      expect(all.truncated).toBe(false);
+      expect(new Set(all.cols.match).size).toBe(41);
+      expect(all.cols.match).toEqual([...all.cols.match].sort((a, b) => a - b));
+      expect(all.cols.player.every((p) => p === MESSI)).toBe(true);
+      const few = await shots('limit=25');
+      expect(few.n).toBe(25);
+      expect(few.truncated).toBe(true);
+      expect(few.cols.shot).toEqual(all.cols.shot.slice(0, 25));
+      expect((await shots(`limit=${all.n}`)).truncated).toBe(false);
+    });
+
+    it('filters by competition and season, by period, outcome and shot type', async () => {
+      const messi = await profile();
+      const cup = messi.seasons.find((s) => s.competition.id === 43);
+      const filtered = await shots(`competition=43&season=${cup?.season.id}&period=open`);
+      expect(filtered.n).toBe(cup?.shots);
+      expect(new Set(filtered.cols.match).size).toBe(cup?.matches);
+      const goals = await shots('period=open&outcome=goal');
+      expect(goals.n).toBe(messi.totals.goals);
+      const penalties = await shots('type=88');
+      expect(penalties.n).toBeGreaterThan(0);
+      expect(penalties.cols.type.every((t) => t === 88)).toBe(true);
+      expect((await shots('type=88,62,61,87')).n).toBe((await shots()).n);
+    });
+
+    it('refuses what it does not understand', async () => {
+      for (const query of [
+        'season=106',
+        'competition=x',
+        'period=sideways',
+        'outcome=goal,nonsense',
+        'outcome=',
+        'type=999',
+        'type=88,',
+        'type=Penalty',
+        'limit=0',
+        'limit=-5',
+        'limit=ten',
+        'junk=1',
+        'type=88&type=62',
+      ]) {
+        const res = await get(`/v1/players/${MESSI}/shots?${query}`);
+        expect(res.status, query).toBe(400);
+        expect(ErrorSchema.parse(await res.json()).error.code).toBe('bad_request');
+      }
+      expect((await get(`/v1/players/${MESSI}?period=open`)).status).toBe(400);
+    });
+
+    it('never gives more than the ceiling, however much is asked for, and binds the shot types', async () => {
+      expect((await shots('limit=1000000')).n).toBeLessThanOrEqual(LIMITS.playerShotsMax);
+      shim.reset();
+      await shots('type=88,62');
+      const query = shim.statements.find((s) => /FROM shots s/.test(s.sql));
+      expect(query?.sql).toContain('s.type IN (?,?)');
+      expect(query?.params).toEqual(expect.arrayContaining([88, 62]));
+      expect(query?.sql).not.toMatch(/88|62/);
+    });
+
+    it('is immutable for the current release, and gone for another', async () => {
+      for (const path of [`/v1/players/${MESSI}`, `/v1/players/${MESSI}/shots`]) {
+        const pinned = await get(`${path}?v=${release}`);
+        expect(pinned.headers.get('cache-control'), path).toBe(CACHE_CONTROL.pinned);
+        expect((await get(`${path}?v=r000000000000`)).status).toBe(410);
+      }
     });
   });
 
@@ -447,7 +559,6 @@ describe.skipIf(!haveDb)('the Worker', () => {
         '/v1/nope',
         '/v1/matches/',
         '/v1/matches/1/2/3',
-        '/v1/players/5503',
         '/v1/compare',
         '/v1/%00',
       ]) {

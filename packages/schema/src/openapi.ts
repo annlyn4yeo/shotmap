@@ -196,7 +196,7 @@ export function buildApiMarkdown(): string {
     '',
     `- Match pages: ${LIMITS.matchesPageDefault} by default, ${LIMITS.matchesPageMax} at most; \`next\` is an opaque cursor.`,
     `- Search: ${LIMITS.searchPerKind} results per kind. Every word typed must be the start of a word.`,
-    `- A player's shots: ${LIMITS.playerShotsMax} rows, then \`too_many_rows\`: use density.`,
+    `- A player's shots: ${LIMITS.playerShotsDefault} rows unless \`limit\` asks for more, ${LIMITS.playerShotsMax} at most, with \`truncated\` saying whether there were more.`,
     `- Density \`step\`: ${LIMITS.densitySteps.join(', ')} yards.`,
     '',
   );
