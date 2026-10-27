@@ -27,10 +27,20 @@ const PAGES = [
     budget: { performance: 90, accessibility: 100, lcpMs: 2000, cls: 0 },
     report: 'lh-report-matches.html',
   },
+  // A player page, the one with the most shots in the data (Lionel Messi, 203 shots in 41
+  // matches, every one drawn): its own file, then the profile, then the shots and the map, so the
+  // app's 2.0 s LCP, and CLAUDE.md's 95 since nothing here is allowed to be slow. (With the
+  // per-mark intro it scored 90: the page does not play it.)
+  {
+    name: 'player',
+    path: '/players/5503',
+    budget: { performance: 95, accessibility: 100, lcpMs: 2000, cls: 0 },
+    report: 'lh-report-player.html',
+  },
 ];
 
-// LH_ONLY=home (or matches, or both comma-separated) audits only those pages, for comparing
-// one page between builds.
+// LH_ONLY=home (or matches, player, or several comma-separated) audits only those pages, for
+// comparing one page between builds.
 const only = process.env.LH_ONLY?.split(',');
 const pages = only ? PAGES.filter((p) => only.includes(p.name)) : PAGES;
 

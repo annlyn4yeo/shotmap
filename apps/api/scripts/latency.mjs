@@ -16,11 +16,20 @@ import { gzipSync } from 'node:zlib';
 const BASE = (process.env.API_URL ?? 'http://127.0.0.1:8787').replace(/\/$/, '');
 const RUNS = Number(process.env.RUNS ?? 40);
 const FINAL = 3869685;
+// The most prolific player in the data: 203 shots in 41 matches.
+const MESSI = 5503;
 // Set LOCAL=1 when measuring wrangler dev: latency budgets are only enforced against a real edge.
 const LOCAL = process.env.LOCAL === '1' || /127\.0\.0\.1|localhost/.test(BASE);
 
 const budgets = {
-  gzipBytes: { meta: 3_000, matchesPage: 25_000, match: 3_000, shots: 6_000 },
+  gzipBytes: {
+    meta: 3_000,
+    matchesPage: 25_000,
+    match: 3_000,
+    shots: 6_000,
+    player: 3_000,
+    playerShots: 6_000,
+  },
   /** Server time to the last byte, p95, for a cache hit and for a D1-backed miss. */
   hitMs: 50,
   missMs: 150,
@@ -43,6 +52,8 @@ const endpoints = [
   ['matches page (200)', `/v1/matches?limit=200&v=${release}`, 'matchesPage'],
   ['match (the final)', `/v1/matches/${FINAL}?v=${release}`, 'match'],
   ['shots (the final)', `/v1/matches/${FINAL}/shots?v=${release}`, 'shots'],
+  ['player (Messi)', `/v1/players/${MESSI}?v=${release}`, 'player'],
+  ['player shots (all 203)', `/v1/players/${MESSI}/shots?v=${release}`, 'playerShots'],
 ];
 
 let failed = false;
@@ -90,6 +101,6 @@ for (const [label, path, key] of endpoints) {
   );
 }
 console.log(
-  `\nBudgets: gzip meta <= ${budgets.gzipBytes.meta} B, matches page <= ${budgets.gzipBytes.matchesPage} B, match <= ${budgets.gzipBytes.match} B, shots <= ${budgets.gzipBytes.shots} B${LOCAL ? '' : `; hit p95 <= ${budgets.hitMs} ms, miss <= ${budgets.missMs} ms`}.`,
+  `\nBudgets: gzip meta <= ${budgets.gzipBytes.meta} B, matches page <= ${budgets.gzipBytes.matchesPage} B, match <= ${budgets.gzipBytes.match} B, shots <= ${budgets.gzipBytes.shots} B, player <= ${budgets.gzipBytes.player} B, a player's shots <= ${budgets.gzipBytes.playerShots} B${LOCAL ? '' : `; hit p95 <= ${budgets.hitMs} ms, miss <= ${budgets.missMs} ms`}.`,
 );
 if (failed) process.exitCode = 1;

@@ -1,7 +1,9 @@
-// Records INP (Interaction to Next Paint) on the match page for a realistic session,
-// under mobile throttling. Lighthouse's navigation run cannot measure INP, so this
-// drives the real page: open the picker, search, pick a match, toggle a filter, select
-// a shot. Run `pnpm build` first, then `pnpm inp` (INP_RUNS=5 by default).
+// Records INP (Interaction to Next Paint) for a realistic session, under mobile throttling.
+// Lighthouse's navigation run cannot measure INP, so this drives the real page. Two sessions:
+//   match (the default): open the picker, search, pick a match, toggle a filter, select a shot.
+//   player (INP_PAGE=player): the most prolific player's whole career, 203 marks drawn at once:
+//     toggle a filter, select a shot, pick a season, sort the table, go back to every season.
+// Run `pnpm build` first, then `pnpm inp` (INP_RUNS=5 by default).
 //
 // Method: Chrome's Event Timing API reports every interaction (pointer, keyboard) with
 // its latency to the next paint. An interaction's latency is the longest of its events;
@@ -17,6 +19,13 @@ const PORT = 4174;
 const RUNS = Number(process.env.INP_RUNS ?? 5);
 const SEARCH = 'argentina';
 const BUDGET_MS = 200;
+const PAGE = process.env.INP_PAGE ?? 'match';
+if (PAGE !== 'match' && PAGE !== 'player') {
+  console.error('INP_PAGE must be match or player.');
+  process.exit(1);
+}
+// Where each session starts: the hero match, or the player with the most shots in the data.
+const START = { match: '/', player: '/players/5503' }[PAGE];
 
 // Mobile: the design size (375 px), touch input, 4x CPU slowdown and Lighthouse's
 // simulated slow 4G (150 ms RTT, 1638.4 Kbps down, 675 Kbps up).
@@ -37,7 +46,7 @@ const NETWORK = {
   uploadThroughput: (675 * 1024) / 8,
 };
 
-// The page's intro animation lasts 3.2 s (INTRO_MS in ShotMap.tsx); let it finish first.
+// The match page's intro animation lasts 3.2 s (INTRO_MS in useMapFrame.ts); let it finish first.
 const SETTLE_MS = 3600;
 
 const OBSERVER = `
@@ -50,6 +59,11 @@ new PerformanceObserver((list) => {
     }
   }
 }).observe({ type: 'event', durationThreshold: 16, buffered: true });
+// Layout shifts that did not follow an input, summed: CLS over the whole session, not just the load.
+window.__shift = 0;
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) if (!e.hadRecentInput) window.__shift += e.value;
+}).observe({ type: 'layout-shift', buffered: true });
 `;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -86,31 +100,54 @@ async function session(browser, url) {
     await handles[nth].tap();
   };
 
-  await step('open the picker', () => tap('.pick-button'), 800);
-  await step(`search "${SEARCH}"`, () => page.keyboard.type(SEARCH, { delay: 90 }), 600);
-  // The results come from the API once typing pauses; wait for the matches before tapping one.
-  await page.waitForSelector('[id^="opt-match-"]', { timeout: 15_000 });
-  await step(
-    'pick a match',
-    async () => {
-      await tap('[id^="opt-match-"]');
-      await page.waitForFunction("!document.querySelector('dialog[open]')");
-      await page.waitForSelector('.shot-layer');
-    },
-    SETTLE_MS,
-  );
-  await step(
-    'toggle a filter',
-    async () => {
-      // The first outcome chip that is not disabled and not "Goal": the usual legend filter.
-      await tap('.chip:not([disabled])', 1);
-    },
-    1000,
-  );
-  await step('select a shot', () => tap('path.shot'), 1000);
+  // The first outcome chip that is not disabled and not "Goal": the usual legend filter.
+  const toggleFilter = () => tap('.chip:not([disabled])', 1);
+  if (PAGE === 'match') {
+    await step('open the picker', () => tap('.pick-button'), 800);
+    await step(
+      `search "${SEARCH}"`,
+      () => page.keyboard.type(SEARCH, { delay: 90 }),
+      600,
+    );
+    // The results come from the API once typing pauses; wait for the matches before tapping one.
+    await page.waitForSelector('[id^="opt-match-"]', { timeout: 15_000 });
+    await step(
+      'pick a match',
+      async () => {
+        await tap('[id^="opt-match-"]');
+        await page.waitForFunction("!document.querySelector('dialog[open]')");
+        await page.waitForSelector('.shot-layer');
+      },
+      SETTLE_MS,
+    );
+    await step('toggle a filter', toggleFilter, 1000);
+    await step('select a shot', () => tap('path.shot'), 1000);
+  } else {
+    // The career: every shot at once, the heaviest the SVG layer is asked to draw.
+    await step('toggle a filter', toggleFilter, 1000);
+    await step('select a shot', () => tap('path.shot'), 1000);
+    await step(
+      'pick a season',
+      async () => {
+        await tap('.seasons-pick', 0);
+        await page.waitForFunction("document.querySelectorAll('path.shot').length < 100");
+      },
+      1000,
+    );
+    await step('sort the table', () => tap('.seasons-sort', 2), 800);
+    await step(
+      'every season again',
+      async () => {
+        await tap('tfoot .seasons-pick');
+        await page.waitForFunction("document.querySelectorAll('path.shot').length > 100");
+      },
+      1000,
+    );
+  }
   await sleep(500);
 
   const events = await page.evaluate('window.__events');
+  const shift = Number(await page.evaluate('window.__shift'));
   await context.close();
 
   // One interaction = every event that shares an interactionId; its latency is the longest.
@@ -134,7 +171,7 @@ async function session(browser, url) {
     };
   });
   const inp = interactions.reduce((max, e) => Math.max(max, e.duration), 0);
-  return { steps, inp, interactions: interactions.length };
+  return { steps, inp, interactions: interactions.length, shift };
 }
 
 if (!existsSync('dist/index.html')) {
@@ -156,14 +193,15 @@ try {
     browserURL: `http://127.0.0.1:${chrome.port}`,
     defaultViewport: null,
   });
-  const url = `http://127.0.0.1:${PORT}/`;
+  const url = `http://127.0.0.1:${PORT}${START}`;
+  console.log(`INP_PAGE=${PAGE}: ${url}`);
 
   const runs = [];
   for (let i = 0; i < RUNS; i++) {
     const run = await session(browser, url);
     runs.push(run);
     console.log(
-      `run ${i + 1}: INP ${run.inp} ms (${run.interactions} interactions)  ` +
+      `run ${i + 1}: INP ${run.inp} ms, CLS ${run.shift.toFixed(4)} (${run.interactions} interactions)  ` +
         run.steps.map((s) => `${s.name}: ${s.ms || '<16'}`).join('  |  '),
     );
   }
@@ -181,6 +219,12 @@ try {
   const inps = runs.map((r) => r.inp);
   console.log(
     `\nINP over ${runs.length} runs: median ${median(inps)} ms, worst ${Math.max(...inps)} ms, best ${Math.min(...inps)} ms (budget < ${BUDGET_MS} ms)`,
+  );
+  // Reported, not gated: Lighthouse gates CLS on the load, and a session's shifts are small and
+  // can vary from run to run.
+  const worstShift = Math.max(...runs.map((r) => r.shift));
+  console.log(
+    `Layout shift over the whole session, worst run: ${worstShift.toFixed(4)} (target 0)`,
   );
   if (median(inps) >= BUDGET_MS) process.exitCode = 1;
 } finally {
