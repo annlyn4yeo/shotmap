@@ -2,7 +2,7 @@ node_modules
 dist
 .vitest
 .lighthouseci
-lh-report.*
+lh-report*
 *.log
 *.md
 .cache

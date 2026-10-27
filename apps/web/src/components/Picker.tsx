@@ -1,28 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { HERO_MATCH_ID } from '@shotmap/schema';
-import { closePicker, ensureIndex, openMatch, openPicker, store } from '../state/app';
-import { entriesOf, groupEntries, searchEntries, type MatchEntry } from '../lib/search';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { search } from '../data/browse';
+import { announce, flatten, groupsOf, type Option } from '../lib/options';
+import { loadRecents, rememberSearch } from '../lib/recents';
+import { createSearcher, type SearchState } from '../lib/searcher';
 import { useStore } from '../lib/store';
+import { closePicker, navigate, openMatch, openPicker, store } from '../state/app';
 import './picker.css';
 
-// One formatter for every row: building an Intl.DateTimeFormat is slow, and the list has 149.
-const DATE = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
-
-const formatDate = (iso: string) => DATE.format(new Date(`${iso}T12:00:00Z`));
-
-const scoreOf = (e: MatchEntry) =>
-  `${e.homeScore}-${e.awayScore}${e.homePens !== null && e.awayPens !== null ? ` (${e.homePens}-${e.awayPens})` : ''}`;
-
-/** The button in the scoreboard that opens the picker. */
+/** The button in the header that opens the search. */
 export function PickerButton() {
   return (
     <button type="button" class="pick-button" onClick={openPicker} aria-haspopup="dialog">
-      <span>Matches</span>
+      <span>Search</span>
       <kbd class="pick-key" aria-hidden="true">
         /
       </kbd>
@@ -31,16 +20,18 @@ export function PickerButton() {
 }
 
 /**
- * The match picker: a modal dialog (so focus is trapped and Esc closes it for
- * free) with a search field and the whole index grouped by competition and
- * season. Focus stays in the field while the arrow keys move through the list,
- * the standard combobox pattern. A full-height sheet on a phone.
+ * The search: a modal dialog (so focus is trapped and Esc closes it for free) with a field and
+ * the results of GET /v1/search grouped as players, teams and matches. Focus stays in the field
+ * while the arrow keys move through the list, the standard combobox pattern. A full-height
+ * sheet on a phone.
  */
 export function Picker() {
   const open = useStore(store, (s) => s.picker);
   const dialog = useRef<HTMLDialogElement>(null);
 
-  useEffect(() => {
+  // Opened as soon as it is drawn, not a frame later, so what is typed right after the shortcut
+  // lands in the field.
+  useLayoutEffect(() => {
     const el = dialog.current;
     if (!el) return;
     if (open && !el.open) el.showModal();
@@ -51,7 +42,7 @@ export function Picker() {
     <dialog
       ref={dialog}
       class="picker"
-      aria-label="Choose a match"
+      aria-label="Search players, teams and matches"
       onClose={closePicker}
       onClick={(e) => {
         // A click on the backdrop lands on the dialog itself, outside its box.
@@ -70,61 +61,73 @@ export function Picker() {
 }
 
 function PickerBody() {
-  const index = useStore(store, (s) => s.index);
-  const failed = useStore(store, (s) => s.indexFailed);
-  const currentId = useStore(store, (s) => s.route.m ?? HERO_MATCH_ID);
   const [query, setQuery] = useState('');
+  const [state, setState] = useState<SearchState>({ status: 'idle' });
   const [active, setActive] = useState(0);
+  const [recents, setRecents] = useState(loadRecents);
   const list = useRef<HTMLUListElement>(null);
 
-  const entries = useMemo(() => (index ? entriesOf(index) : []), [index]);
-  const results = useMemo(() => searchEntries(entries, query), [entries, query]);
-  const groups = useMemo(() => groupEntries(results), [results]);
+  // Nothing is asked until typing pauses, and a question nobody waits for any more is aborted.
+  const searcher = useMemo(() => createSearcher({ search, onState: setState }), []);
+  useEffect(() => () => searcher.cancel(), [searcher]);
 
-  // Start on the current match, so the list opens where you already are.
+  // While the next answer loads, keep showing the last one: the list does not flash empty.
+  const last = useRef<SearchState>({ status: 'idle' });
+  if (state.status === 'ready') last.current = state;
+  const shown = state.status === 'loading' ? last.current : state;
+  const groups = useMemo(() => groupsOf(shown, recents), [shown, recents]);
+  const options = useMemo(() => flatten(groups), [groups]);
+  const busy = state.status === 'loading';
+
+  useEffect(() => setActive(0), [groups]);
   useEffect(() => {
-    const at = results.findIndex((e) => e.id === currentId);
-    setActive(at >= 0 ? at : 0);
-    // Only when the dialog opens.
-  }, []);
+    const key = options[active]?.key;
+    if (key !== undefined)
+      list.current?.querySelector(`#opt-${key}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, options]);
 
-  useEffect(() => {
-    const id = results[active]?.id;
-    if (id === undefined) return;
-    list.current?.querySelector(`#opt-${id}`)?.scrollIntoView({ block: 'nearest' });
-  }, [active, results]);
+  const type = (words: string) => {
+    setQuery(words);
+    searcher.run(words);
+  };
 
-  const choose = (entry: MatchEntry | undefined) => {
-    if (!entry) return;
+  const choose = (option: Option | undefined) => {
+    if (!option) return;
+    if (option.words !== undefined) {
+      type(option.words);
+      return;
+    }
+    setRecents(rememberSearch(query));
     closePicker();
-    openMatch(entry.id);
+    if (option.match !== undefined) openMatch(option.match);
+    else if (option.href) navigate(option.href);
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    const last = results.length - 1;
+    const end = options.length - 1;
     let to: number | null = null;
-    if (e.key === 'ArrowDown') to = Math.min(last, active + 1);
+    if (e.key === 'ArrowDown') to = Math.min(end, active + 1);
     else if (e.key === 'ArrowUp') to = Math.max(0, active - 1);
-    else if (e.key === 'PageDown') to = Math.min(last, active + 8);
+    else if (e.key === 'PageDown') to = Math.min(end, active + 8);
     else if (e.key === 'PageUp') to = Math.max(0, active - 8);
     else if (e.key === 'Home' && e.ctrlKey) to = 0;
-    else if (e.key === 'End' && e.ctrlKey) to = last;
+    else if (e.key === 'End' && e.ctrlKey) to = end;
     if (to !== null) {
       e.preventDefault();
       setActive(to);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      choose(results[active]);
+      choose(options[active]);
     }
   };
 
-  const activeId = results[active]?.id;
+  const activeKey = options[active]?.key;
   // Spread, because the input typings insist on a datalist `list` for role=combobox.
   const combobox: Record<string, string | undefined> = {
     role: 'combobox',
     'aria-expanded': 'true',
     'aria-controls': 'picker-list',
-    'aria-activedescendant': activeId !== undefined ? `opt-${activeId}` : undefined,
+    'aria-activedescendant': activeKey !== undefined ? `opt-${activeKey}` : undefined,
   };
   let position = -1;
 
@@ -132,7 +135,7 @@ function PickerBody() {
     <div class="picker-box">
       <header class="picker-head">
         <label class="picker-field">
-          <span class="label">Search teams</span>
+          <span class="label">Search</span>
           <input
             type="search"
             class="picker-input"
@@ -141,12 +144,10 @@ function PickerBody() {
             autocapitalize="off"
             spellcheck={false}
             enterkeyhint="go"
-            placeholder="Argentina, Spain, final, 2024"
+            maxLength={64}
+            placeholder="Messi, Argentina, final"
             value={query}
-            onInput={(e) => {
-              setQuery(e.currentTarget.value);
-              setActive(0);
-            }}
+            onInput={(e) => type(e.currentTarget.value)}
             onKeyDown={onKeyDown}
           />
         </label>
@@ -156,31 +157,25 @@ function PickerBody() {
       </header>
 
       <p class="visually-hidden" role="status">
-        {index === null
-          ? failed
-            ? 'The match list did not load'
-            : 'Loading the matches'
-          : results.length === 1
-            ? '1 match'
-            : `${results.length} matches`}
+        {announce(state, options.length)}
       </p>
 
-      {index === null ? (
-        <div class="picker-empty">
-          <p class="picker-empty-title">
-            {failed ? 'The match list did not load' : 'Loading the matches'}
-          </p>
-          {failed ? (
-            <button type="button" class="picker-clear" onClick={ensureIndex}>
-              Try again
-            </button>
-          ) : null}
+      {state.status === 'error' ? (
+        <div class="picker-empty" role="alert">
+          <p class="picker-empty-title">The search did not work</p>
+          <p>Check your connection and try again.</p>
+          <button type="button" class="picker-clear" onClick={() => searcher.run(query)}>
+            Try again
+          </button>
         </div>
-      ) : results.length === 0 ? (
+      ) : state.status === 'ready' && options.length === 0 ? (
         <div class="picker-empty">
-          <p class="picker-empty-title">No match for &ldquo;{query.trim()}&rdquo;</p>
-          <p>Try a team name, a stage such as &ldquo;semi&rdquo;, or a year.</p>
-          <button type="button" class="picker-clear" onClick={() => setQuery('')}>
+          <p class="picker-empty-title">Nothing for &ldquo;{state.words}&rdquo;</p>
+          <p>
+            Try a surname, a team, or a stage such as &ldquo;semi&rdquo;. Words match the
+            start of a word.
+          </p>
+          <button type="button" class="picker-clear" onClick={() => type('')}>
             Clear the search
           </button>
         </div>
@@ -190,7 +185,9 @@ function PickerBody() {
           id="picker-list"
           class="picker-list"
           role="listbox"
-          aria-label="Matches"
+          aria-label="Results"
+          aria-busy={busy}
+          data-busy={busy}
         >
           {groups.map((group) => (
             <li key={group.key} role="presentation" class="picker-group">
@@ -198,27 +195,23 @@ function PickerBody() {
                 {group.title}
               </h3>
               <ul role="group" aria-labelledby={`g-${group.key}`}>
-                {group.entries.map((entry) => {
+                {group.options.map((option) => {
                   position++;
                   const at = position;
                   return (
                     <li
-                      key={entry.id}
-                      id={`opt-${entry.id}`}
+                      key={option.key}
+                      id={`opt-${option.key}`}
                       role="option"
                       class="picker-row"
                       aria-selected={at === active}
-                      data-current={entry.id === currentId}
                       onPointerMove={() => at !== active && setActive(at)}
-                      onClick={() => choose(entry)}
+                      onClick={() => choose(option)}
                     >
-                      <span class="picker-teams">
-                        {entry.home} v {entry.away}
-                      </span>
-                      <span class="picker-score num">{scoreOf(entry)}</span>
-                      <span class="picker-sub label">
-                        {entry.stage}, {formatDate(entry.date)}
-                      </span>
+                      <span class="picker-teams">{option.label}</span>
+                      {option.sub ? (
+                        <span class="picker-sub label">{option.sub}</span>
+                      ) : null}
                     </li>
                   );
                 })}

@@ -45,13 +45,15 @@ export function MapSkeleton({ from }: { from: number }) {
 }
 
 /** A match that did not load: say so, and offer the two ways forward. */
-export function ErrorState({ what }: { what: 'match' | 'list' }) {
+export function ErrorState({ what }: { what: 'match' | 'list' | 'page' }) {
   return (
     <div class="state" role="alert">
       <h2 class="state-title">
         {what === 'match'
           ? 'This match could not be loaded'
-          : 'The match list could not be loaded'}
+          : what === 'page'
+            ? 'This page could not be loaded'
+            : 'The match list could not be loaded'}
       </h2>
       <p>
         {what === 'match'

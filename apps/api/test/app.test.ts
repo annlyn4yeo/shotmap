@@ -13,6 +13,7 @@ import {
   MatchListSchema,
   MatchShotsSchema,
   MetaSchema,
+  SearchSchema,
   ROUTES,
   envelope,
 } from '@shotmap/schema/zod';
@@ -67,6 +68,94 @@ describe.skipIf(!haveDb)('the Worker', () => {
       expect(parsed.attribution).toEqual(ATTRIBUTION);
       expect(parsed.release).toBe(res.headers.get('x-data-release'));
       expect(parsed.data.counts.shots).toBe(3721);
+    });
+  });
+
+  describe('/v1/search', () => {
+    const search = async (query: string) => {
+      const res = await get(`/v1/search?${query}`);
+      expect(res.status, query).toBe(200);
+      return envelope(SearchSchema).parse(await res.json()).data;
+    };
+    const ids = (people: { id: number }[]) => people.map((p) => p.id);
+
+    it('finds players, teams and matches by the start of every word, and says what it was asked', async () => {
+      const arg = await search('q=argentina');
+      expect(arg.q).toBe('argentina');
+      expect(arg.teams.map((t) => t.name)).toContain('Argentina');
+      expect(arg.matches.length).toBeGreaterThan(5);
+      expect(ids((await search('q=argentina%20france%20final')).matches)).toEqual([
+        FINAL,
+      ]);
+      expect(ids((await search('q=mes')).players)).toContain(5503);
+      // Inside a word is not a match, by design (docs/adr/0006).
+      expect((await search('q=essi')).players).toEqual([]);
+    });
+
+    it('folds accents and case the way ingest does, so the typed and the accented spelling agree', async () => {
+      const typed = await search('q=angel%20di%20maria');
+      const accented = await search(`q=${encodeURIComponent('Ángel Di María')}`);
+      expect(typed.players).toHaveLength(1);
+      expect(ids(accented.players)).toEqual(ids(typed.players));
+      expect(ids((await search('q=philip%20foden')).players)).toEqual([4354]);
+      expect(ids((await search('q=PHIL%20FOD')).players)).toEqual([4354]);
+      // Real accented names in the data; each must find someone, the same people either way.
+      for (const [plain, accented] of [
+        ['mbappe', 'Mbappé'],
+        ['ismaila sarr', 'Ismaïla Sarr'],
+        ['nicolas otamendi', 'Nicolás Otamendi'],
+      ] as const) {
+        const a = await search(`q=${encodeURIComponent(plain)}`);
+        const b = await search(`q=${encodeURIComponent(accented.toUpperCase())}`);
+        expect(a.players.length, plain).toBeGreaterThan(0);
+        expect(ids(b.players), accented).toEqual(ids(a.players));
+      }
+    });
+
+    it('caps the results per kind, whatever limit is asked', async () => {
+      const wide = await search('q=a&limit=1000');
+      for (const list of [wide.players, wide.teams, wide.matches])
+        expect(list.length).toBeLessThanOrEqual(LIMITS.searchPerKind);
+      expect((await search('q=a&limit=2')).players).toHaveLength(2);
+    });
+
+    it('needs words to look for, and refuses anything it does not know', async () => {
+      for (const query of [
+        '',
+        'q=',
+        'q=%20%20',
+        `q=${'x'.repeat(65)}`,
+        'q=a&limit=0',
+        'q=a&limit=-1',
+        'q=a&junk=1',
+        'q=a&q=b',
+      ]) {
+        const res = await get(`/v1/search?${query}`);
+        expect(res.status, query).toBe(400);
+        expect(ErrorSchema.parse(await res.json()).error.code).toBe('bad_request');
+      }
+    });
+
+    it('binds what is typed, so a quote is only a character', async () => {
+      const { players, teams, matches } = await search(
+        `q=${encodeURIComponent("'; DROP TABLE shots; --")}`,
+      );
+      expect([players, teams, matches]).toEqual([[], [], []]);
+      expect(shim.statements.length).toBeGreaterThan(0);
+      for (const statement of shim.statements) {
+        expect(statement.sql).not.toMatch(/DROP|--/i);
+        expect(statement.params.join(' ')).toContain('drop');
+      }
+      const meta = envelope(MetaSchema).parse(await (await get('/v1/meta')).json());
+      expect(meta.data.counts.shots).toBe(3721);
+    });
+
+    it('is immutable for the current release, and gone for another', async () => {
+      const pinned = await get(`/v1/search?q=mes&v=${release}`);
+      expect(pinned.headers.get('cache-control')).toBe(CACHE_CONTROL.pinned);
+      expect(pinned.headers.get('etag')).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+      const stale = await get('/v1/search?q=mes&v=r000000000000');
+      expect(stale.status).toBe(410);
     });
   });
 
@@ -359,7 +448,6 @@ describe.skipIf(!haveDb)('the Worker', () => {
         '/v1/matches/',
         '/v1/matches/1/2/3',
         '/v1/players/5503',
-        '/v1/search?q=mes',
         '/v1/compare',
         '/v1/%00',
       ]) {

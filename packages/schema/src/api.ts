@@ -377,7 +377,7 @@ export const ROUTES: readonly Route[] = [
     id: 'search',
     path: '/v1/search',
     summary: 'Players, teams and matches whose name starts with the words typed',
-    status: 'planned',
+    status: 'live',
     query: withPin({
       q: z.string().min(1).max(64),
       limit: qint.optional().describe(`1 to ${LIMITS.searchPerKind}`),

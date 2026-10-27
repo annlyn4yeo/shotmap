@@ -1,0 +1,10 @@
+# Cloudflare Pages. Only the app's own paths answer with the app. A top-level 404.html (made by
+# the build, see vite.config.ts) turns Pages' automatic single-page fallback off, so everything
+# else, /v1/* included, is a real 404 instead of the app with a 200. The rewrite goes to /, not
+# /index.html, which Pages redirects to /. Tested on a preview deployment (docs/adr/0008).
+/matches / 200
+/matches/ / 200
+/match/* / 200
+/players/* / 200
+/compare / 200
+/compare/ / 200
