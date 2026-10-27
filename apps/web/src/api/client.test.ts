@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createApiClient } from './client';
 
-const RELEASE = 'r0123456789ab';
-const NEXT = 'rffffffffffff';
+const RELEASE = '2026-10-27.0123456789ab';
+const NEXT = '2026-10-28.ffffffffffff';
 
 const envelope = (data: unknown, release = RELEASE) => ({
   release,

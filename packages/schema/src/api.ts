@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { LIMITS, RELEASE_PATTERN } from './contract';
 import { OUTCOMES } from './constants';
+import { ENUMS } from './enums';
 
 const int = z.number().int();
 const id = int.min(0);
@@ -151,6 +152,8 @@ export const PlayerShotsSchema = refineShots(
   z.strictObject({
     n: int.min(0),
     cols: z.strictObject({ ...shotColumns, match: z.array(id) }),
+    /** True when there were more shots than `limit`: these are the first ones, by match and position. */
+    truncated: z.boolean(),
   }),
   false,
 );
@@ -240,6 +243,11 @@ export const MetaSchema = z.strictObject({
     /** The commit of statsbomb/open-data the data was built from. */
     ref: z.string().regex(/^[0-9a-f]{40}$/),
   }),
+  /** The release `release` names, in its two parts: when it was cut and what is in it. */
+  released: z.strictObject({
+    date: day,
+    hash: z.string().regex(/^[0-9a-f]{12}$/),
+  }),
   schemaVersion: int.min(1),
   counts: z.strictObject({
     matches: int.min(0),
@@ -266,13 +274,22 @@ const PlayerStats = z.strictObject({
   xg: z.number(),
 });
 
-/** A player, summed over every team they took shots for. There is no single "team". */
+/** One competition's season, as a player took part in it: the rows of the season table. */
+const PlayerSeason = z.strictObject({
+  competition: z.strictObject({ id, name: text }),
+  season: z.strictObject({ id, name: text }),
+  ...PlayerStats.shape,
+});
+
+/** A player, summed over every team they took shots for. There is no single "team". Open play only: shootout kicks are not counted. */
 export const PlayerSchema = z.strictObject({
   id,
   name: text,
   fullName: text,
   teams: z.array(z.strictObject({ id, name: text, shots: int.min(1) })),
   totals: PlayerStats,
+  /** Oldest first. */
+  seasons: z.array(PlayerSeason),
 });
 
 export const CompareSchema = z.strictObject({ a: PlayerSchema, b: PlayerSchema });
@@ -305,6 +322,12 @@ const filters = {
     .optional()
     .describe('Open play only or the shootout only'),
   outcome: outcomeList.optional(),
+  type: z
+    .string()
+    .optional()
+    .describe(
+      `Comma-separated shot type ids to keep: ${ENUMS.shotType.map((t) => `${t.id} ${t.name}`).join(', ')}`,
+    ),
 };
 const idParam = z.object({ id: qint });
 
@@ -336,7 +359,7 @@ export const ROUTES: readonly Route[] = [
   {
     id: 'listMatches',
     path: '/v1/matches',
-    summary: 'Browse matches, oldest first',
+    summary: 'Browse matches, oldest first unless `order=newest`',
     status: 'live',
     query: withPin({
       competition: qint.optional(),
@@ -349,6 +372,12 @@ export const ROUTES: readonly Route[] = [
         .optional()
         .describe(`1 to ${LIMITS.matchesPageMax}, default ${LIMITS.matchesPageDefault}`),
       cursor: z.string().optional(),
+      order: z
+        .enum(['oldest', 'newest'])
+        .optional()
+        .describe(
+          'oldest (the default) or newest first; a cursor belongs to the order that made it',
+        ),
     }),
     response: envelope(MatchListSchema),
     notes: `Never more than ${LIMITS.matchesPageMax} matches, whatever \`limit\` says.`,
@@ -390,7 +419,9 @@ export const ROUTES: readonly Route[] = [
     id: 'getPlayer',
     path: '/v1/players/{id}',
     summary: 'A player, summed across every team they shot for',
-    status: 'planned',
+    status: 'live',
+    notes:
+      'Open play only. `seasons` is the table of competition seasons, oldest first, and its rows add up to `totals`.',
     params: idParam,
     query: withPin({}),
     response: envelope(PlayerSchema),
@@ -399,11 +430,16 @@ export const ROUTES: readonly Route[] = [
     id: 'getPlayerShots',
     path: '/v1/players/{id}/shots',
     summary: "A player's shots across matches, as columns",
-    status: 'planned',
+    status: 'live',
     params: idParam,
-    query: withPin(filters),
+    query: withPin({
+      ...filters,
+      limit: qint
+        .optional()
+        .describe(`1 to ${LIMITS.playerShotsMax}, default ${LIMITS.playerShotsDefault}`),
+    }),
     response: envelope(PlayerShotsSchema),
-    notes: `Sorted by match, then seq. Answers 400 \`too_many_rows\` above ${LIMITS.playerShotsMax} rows: ask for density instead.`,
+    notes: `Sorted by match, then seq. Never more than \`limit\` rows (at most ${LIMITS.playerShotsMax}); \`truncated\` says whether there were more, and the rows are the first ones. \`season\` needs \`competition\`. Open play and the shootout are both included unless \`period\` says otherwise.`,
   },
   {
     id: 'getPlayerDensity',

@@ -8,7 +8,7 @@ import { goldenDir } from '../../scripts/golden';
  * `/v1/matches`, `/v1/matches/:id` and `/v1/matches/:id/shots` in the real envelope. Every
  * match it knows is the committed 2022 final under another id.
  */
-export const RELEASE = 'r0123456789ab';
+export const RELEASE = '2026-10-27.0123456789ab';
 
 const fixture = JSON.parse(
   readFileSync(join(goldenDir(), 'final-3869685.api.json'), 'utf8'),
@@ -66,6 +66,7 @@ export function fakeApi(matchIds: readonly number[]) {
       return Promise.resolve(
         jsonResponse({
           source: { name: 'StatsBomb open data', ref: 'a'.repeat(40) },
+          released: { date: '2026-10-27', hash: '0123456789ab' },
           schemaVersion: 1,
           counts: { matches: matchIds.length, shots: 0, players: 0, teams: 0 },
           competitions: [

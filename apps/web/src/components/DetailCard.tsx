@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { sentence, type Shot } from '../data/shots';
 import './card.css';
 
@@ -7,6 +8,8 @@ interface DetailCardProps {
   /** Where the shot is on the map, as percentages of its width and height (popover anchor). */
   anchor: { x: number; y: number };
   onClose: () => void;
+  /** More for the foot of the card: a shot shown away from its match links back to it. */
+  children?: ComponentChildren;
 }
 
 /**
@@ -14,7 +17,7 @@ interface DetailCardProps {
  * screen: the same element, laid out by CSS. It is a live region, so selecting
  * a shot announces it while focus stays on the mark.
  */
-export function DetailCard({ shot, team, anchor, onClose }: DetailCardProps) {
+export function DetailCard({ shot, team, anchor, onClose, children }: DetailCardProps) {
   const extra = shot.technique === 'Normal' ? '' : `, ${shot.technique.toLowerCase()}`;
   return (
     <section
@@ -65,6 +68,7 @@ export function DetailCard({ shot, team, anchor, onClose }: DetailCardProps) {
           </dd>
         </div>
       </dl>
+      {children}
     </section>
   );
 }

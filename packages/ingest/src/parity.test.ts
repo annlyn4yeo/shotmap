@@ -88,7 +88,7 @@ function httpSource(base: string): Source {
     // The Worker sends a strong ETag naming the release. Cloudflare's edge makes it weak
     // (W/"...") when it compresses the body, which a revalidating client still matches.
     const etag = (res.headers.get('etag') ?? '').replace(/^W\//, '');
-    expect(etag, url).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+    expect(etag, url).toMatch(/^"\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}-[0-9a-f]{16}"$/);
     expect(etag.startsWith(`"${body.release}-`), url).toBe(true);
     expect(res.headers.get('cache-control'), url).toContain(
       pinned ? 'immutable' : 's-maxage',
@@ -135,14 +135,19 @@ if (process.env.API_URL)
     () => httpSource(process.env.API_URL as string),
   ]);
 
+// The database may hold more than the static files do (the whole catalogue): what is proved is that
+// every match the static files have is answered exactly as they have it, and that the rest of the
+// list is consistent with them. With only the three competitions the two are the same set.
 describe.skipIf(sources.length === 0)('parity: static files against the answers', () => {
   it('covers all 149 matches', () => {
     expect(rows).toHaveLength(149);
   });
 
-  it('uses the same enums as the static legend', () => {
-    for (const kind of ['outcome', 'bodyPart', 'shotType', 'technique'] as const)
-      expect(ENUMS[kind]).toEqual(index.enums[kind]);
+  it('uses the same enums as the static legend, for the values the static files have', () => {
+    for (const kind of ['outcome', 'bodyPart', 'shotType', 'technique'] as const) {
+      const have = new Set(index.enums[kind].map((e) => e.id));
+      expect(ENUMS[kind].filter((e) => have.has(e.id))).toEqual(index.enums[kind]);
+    }
   });
 
   describe.each(sources)('%s', (_name, make) => {
@@ -198,13 +203,36 @@ describe.skipIf(sources.length === 0)('parity: static files against the answers'
       30_000,
     );
 
-    it('lists every season of the index in the same order, with the same rows', async () => {
+    it('lists every season of the index with the same rows, in the same order', async () => {
       const meta = await source.meta();
-      expect(meta.competitions.map((c) => [c.id, c.name])).toEqual(
-        index.competitions.map((c) => [c.id, c.name]),
-      );
-      expect(meta.stages.map((s) => s.name)).toEqual(index.stages);
-      expect(meta.counts.matches).toBe(149);
+      const known = new Map(index.competitions.map((c) => [c.id, c]));
+      // The index's competitions are in meta, named alike (the order they are listed in is the
+      // database's own: by name, where the static index keeps the order of its config)...
+      const byId = (a: (string | number)[], b: (string | number)[]) =>
+        Number(a[0]) - Number(b[0]);
+      expect(
+        meta.competitions
+          .filter((c) => known.has(c.id))
+          .map((c) => [c.id, c.name])
+          .sort(byId),
+      ).toEqual(index.competitions.map((c) => [c.id, c.name]).sort(byId));
+      // ...and their seasons are there, with the match counts the files have.
+      for (const c of index.competitions) {
+        const seasons = meta.competitions.find((m) => m.id === c.id)?.seasons ?? [];
+        for (const s of c.seasons)
+          expect(
+            seasons.find((x) => x.id === s.id),
+            `${c.name} ${s.name}`,
+          ).toMatchObject({
+            name: s.name,
+            matches: s.matches.length,
+          });
+      }
+      // The stages the files name are all there, in the order the files give them.
+      expect(
+        meta.stages.map((s) => s.name).filter((n) => index.stages.includes(n)),
+      ).toEqual(index.stages);
+      expect(meta.counts.matches).toBeGreaterThanOrEqual(149);
       for (const c of index.competitions) {
         for (const s of c.seasons) {
           const page = await source.list({ competition: c.id, season: s.id, limit: 200 });
@@ -233,8 +261,12 @@ describe.skipIf(sources.length === 0)('parity: static files against the answers'
         seen.push(...page.items.map((m) => m.id));
         cursor = page.next ?? undefined;
       } while (cursor);
-      expect(new Set(seen).size).toBe(149);
-    }, 30_000);
+      // Once each, as many as meta counts, and every one the static files have among them.
+      const meta = await source.meta();
+      expect(new Set(seen).size).toBe(seen.length);
+      expect(seen).toHaveLength(meta.counts.matches);
+      expect(rows.every((r) => seen.includes(r[0]))).toBe(true);
+    }, 120_000);
 
     it("serves the final's shots exactly as the committed fixture has them", async () => {
       const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as MatchFile;

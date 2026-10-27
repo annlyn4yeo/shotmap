@@ -13,6 +13,8 @@ import {
   MatchListSchema,
   MatchShotsSchema,
   MetaSchema,
+  PlayerSchema,
+  PlayerShotsSchema,
   SearchSchema,
   ROUTES,
   envelope,
@@ -61,13 +63,127 @@ describe.skipIf(!haveDb)('the Worker', () => {
       const res = await get('/v1/meta');
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toMatch(/^application\/json/);
-      expect(res.headers.get('etag')).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+      expect(res.headers.get('etag')).toMatch(
+        /^"\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}-[0-9a-f]{16}"$/,
+      );
       expect(res.headers.get('cache-control')).toBe(CACHE_CONTROL.floating);
       expect(res.headers.get('x-data-release')).toMatch(RELEASE_PATTERN);
       const parsed = envelope(MetaSchema).parse(await res.json());
       expect(parsed.attribution).toEqual(ATTRIBUTION);
       expect(parsed.release).toBe(res.headers.get('x-data-release'));
       expect(parsed.data.counts.shots).toBe(3721);
+    });
+  });
+
+  describe('/v1/players', () => {
+    const MESSI = 5503;
+    const profile = async (id = MESSI) => {
+      const res = await get(`/v1/players/${id}`);
+      expect(res.status).toBe(200);
+      return envelope(PlayerSchema).parse(await res.json()).data;
+    };
+    const shots = async (query = '', id = MESSI) => {
+      const res = await get(`/v1/players/${id}/shots${query ? `?${query}` : ''}`);
+      expect(res.status, query).toBe(200);
+      return envelope(PlayerShotsSchema).parse(await res.json()).data;
+    };
+
+    it('gives the profile: names, the teams, the career, and the season table that adds up to it', async () => {
+      const messi = await profile();
+      expect(messi.name).toBe('Lionel Messi');
+      expect(messi.teams.map((t) => t.name).sort()).toEqual(['Argentina', 'Barcelona']);
+      expect(messi.seasons.map((s) => `${s.competition.name} ${s.season.name}`)).toEqual([
+        'La Liga 2018/2019',
+        'FIFA World Cup 2022',
+      ]);
+      expect(messi.totals.matches).toBe(41);
+      for (const key of ['matches', 'shots', 'goals', 'onTarget'] as const)
+        expect(messi.seasons.reduce((n, s) => n + s[key], 0)).toBe(messi.totals[key]);
+    });
+
+    it('is a few statements however many seasons there are', async () => {
+      shim.reset();
+      await get(`/v1/players/${MESSI}`);
+      expect(shim.statements.length).toBeLessThanOrEqual(5);
+    });
+
+    it('says there is no such player, for the profile and for the shots', async () => {
+      for (const path of ['/v1/players/1', '/v1/players/1/shots']) {
+        const res = await get(path);
+        expect(res.status, path).toBe(404);
+        const { error } = ErrorSchema.parse(await res.json());
+        expect(error.code).toBe('not_found');
+        expect(error.message, 'it names what is missing').toBe('no such player');
+      }
+      expect((await get('/v1/players/abc')).status).toBe(400);
+    });
+
+    it('gives shots as columns with the match, sorted by match, and no more than were asked for', async () => {
+      const all = await shots();
+      expect(all.truncated).toBe(false);
+      expect(new Set(all.cols.match).size).toBe(41);
+      expect(all.cols.match).toEqual([...all.cols.match].sort((a, b) => a - b));
+      expect(all.cols.player.every((p) => p === MESSI)).toBe(true);
+      const few = await shots('limit=25');
+      expect(few.n).toBe(25);
+      expect(few.truncated).toBe(true);
+      expect(few.cols.shot).toEqual(all.cols.shot.slice(0, 25));
+      expect((await shots(`limit=${all.n}`)).truncated).toBe(false);
+    });
+
+    it('filters by competition and season, by period, outcome and shot type', async () => {
+      const messi = await profile();
+      const cup = messi.seasons.find((s) => s.competition.id === 43);
+      const filtered = await shots(`competition=43&season=${cup?.season.id}&period=open`);
+      expect(filtered.n).toBe(cup?.shots);
+      expect(new Set(filtered.cols.match).size).toBe(cup?.matches);
+      const goals = await shots('period=open&outcome=goal');
+      expect(goals.n).toBe(messi.totals.goals);
+      const penalties = await shots('type=88');
+      expect(penalties.n).toBeGreaterThan(0);
+      expect(penalties.cols.type.every((t) => t === 88)).toBe(true);
+      expect((await shots('type=88,62,61,87')).n).toBe((await shots()).n);
+    });
+
+    it('refuses what it does not understand', async () => {
+      for (const query of [
+        'season=106',
+        'competition=x',
+        'period=sideways',
+        'outcome=goal,nonsense',
+        'outcome=',
+        'type=999',
+        'type=88,',
+        'type=Penalty',
+        'limit=0',
+        'limit=-5',
+        'limit=ten',
+        'junk=1',
+        'type=88&type=62',
+      ]) {
+        const res = await get(`/v1/players/${MESSI}/shots?${query}`);
+        expect(res.status, query).toBe(400);
+        expect(ErrorSchema.parse(await res.json()).error.code).toBe('bad_request');
+      }
+      expect((await get(`/v1/players/${MESSI}?period=open`)).status).toBe(400);
+    });
+
+    it('never gives more than the ceiling, however much is asked for, and binds the shot types', async () => {
+      expect((await shots('limit=1000000')).n).toBeLessThanOrEqual(LIMITS.playerShotsMax);
+      shim.reset();
+      await shots('type=88,62');
+      const query = shim.statements.find((s) => /FROM shots s/.test(s.sql));
+      expect(query?.sql).toContain('s.type IN (?,?)');
+      expect(query?.params).toEqual(expect.arrayContaining([88, 62]));
+      expect(query?.sql).not.toMatch(/88|62/);
+    });
+
+    it('is immutable for the current release, and gone for another', async () => {
+      for (const path of [`/v1/players/${MESSI}`, `/v1/players/${MESSI}/shots`]) {
+        const pinned = await get(`${path}?v=${release}`);
+        expect(pinned.headers.get('cache-control'), path).toBe(CACHE_CONTROL.pinned);
+        expect((await get(`${path}?v=r000000000000`)).status).toBe(410);
+      }
     });
   });
 
@@ -153,7 +269,9 @@ describe.skipIf(!haveDb)('the Worker', () => {
     it('is immutable for the current release, and gone for another', async () => {
       const pinned = await get(`/v1/search?q=mes&v=${release}`);
       expect(pinned.headers.get('cache-control')).toBe(CACHE_CONTROL.pinned);
-      expect(pinned.headers.get('etag')).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+      expect(pinned.headers.get('etag')).toMatch(
+        /^"\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}-[0-9a-f]{16}"$/,
+      );
       const stale = await get('/v1/search?q=mes&v=r000000000000');
       expect(stale.status).toBe(410);
     });
@@ -175,6 +293,20 @@ describe.skipIf(!haveDb)('the Worker', () => {
       } while (cursor);
       expect(pages).toBe(3);
       expect(new Set(seen).size).toBe(149);
+    });
+
+    it('lists the latest matches first when asked, and says what it does not understand', async () => {
+      const ids = async (query: string) =>
+        envelope(MatchListSchema)
+          .parse(await (await get(`/v1/matches?${query}`)).json())
+          .data.items.map((m) => m.id);
+      const oldest = await ids('limit=200');
+      expect(await ids('order=oldest&limit=200')).toEqual(oldest);
+      expect(await ids('order=newest&limit=200')).toEqual([...oldest].reverse());
+      for (const bad of ['order=latest', 'order=', 'order=newest&order=oldest']) {
+        const res = await get(`/v1/matches?${bad}`);
+        expect(res.status, bad).toBe(400);
+      }
     });
 
     it('filters by competition, season, stage, team and date', async () => {
@@ -295,7 +427,9 @@ describe.skipIf(!haveDb)('the Worker', () => {
         expect(res.status).toBe(404);
         expect(res.headers.get('content-type')).toMatch(/^application\/json/);
         expect(res.headers.get('cache-control')).toBe(CACHE_CONTROL.floating);
-        expect(ErrorSchema.parse(await res.json()).error.code).toBe('not_found');
+        const { error } = ErrorSchema.parse(await res.json());
+        expect(error.code).toBe('not_found');
+        expect(error.message).toBe('no such match');
       }
       for (const path of [
         '/v1/matches/abc',
@@ -333,13 +467,33 @@ describe.skipIf(!haveDb)('the Worker', () => {
     });
 
     it('answers 410 for another release, and 400 for something that is not one', async () => {
-      const gone = await get('/v1/meta?v=r000000000000');
+      const gone = await get('/v1/meta?v=2020-01-01.000000000000');
       expect(gone.status).toBe(410);
       expect(gone.headers.get('cache-control')).toBe('no-store');
       const err = ErrorSchema.parse(await gone.json());
       expect(err.error.code).toBe('release_gone');
       expect(err.error.message).toContain(release);
       expect((await get('/v1/meta?v=latest')).status).toBe(400);
+      expect((await get('/v1/meta?v=2020-13-01.nothex')).status).toBe(400);
+    });
+
+    it('is a release that is gone, not a malformed one, when a page built before releases had dates asks', async () => {
+      // `r` and 12 hex digits was the form until the release carried its date.
+      const res = await get(`/v1/matches/${FINAL}?v=r2422edac0126`);
+      expect(res.status).toBe(410);
+      expect(ErrorSchema.parse(await res.json()).error.message).toContain(release);
+    });
+
+    it('names the release by its date and its content hash, and serves both parts in /v1/meta', async () => {
+      expect(release).toMatch(/^\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}$/);
+      const meta = await (
+        await get('/v1/meta')
+      ).json<{
+        release: string;
+        data: { released: { date: string; hash: string } };
+      }>();
+      expect(`${meta.data.released.date}.${meta.data.released.hash}`).toBe(meta.release);
+      expect(meta.release).toBe(release);
     });
 
     it('gives the same ETag with and without the pin, and 304s when it is sent back', async () => {
@@ -447,7 +601,6 @@ describe.skipIf(!haveDb)('the Worker', () => {
         '/v1/nope',
         '/v1/matches/',
         '/v1/matches/1/2/3',
-        '/v1/players/5503',
         '/v1/compare',
         '/v1/%00',
       ]) {

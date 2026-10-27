@@ -6,6 +6,7 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { ENUMS, PITCH, SHOT_ID_FACTOR, normalise } from '@shotmap/schema';
+import { verifiedGoals } from './catalogue.config';
 
 export interface Check {
   name: string;
@@ -20,11 +21,16 @@ const ids = (kind: keyof typeof ENUMS) => ENUMS[kind].map((e) => e.id).join(',')
 
 type Row = Record<string, unknown>;
 
-export function checkDatabase(db: DatabaseSync): Check[] {
+/** `limit`: how many violations each check lists (the check fails on the first one either way). */
+export function checkDatabase(
+  db: DatabaseSync,
+  options: { limit?: number } = {},
+): Check[] {
+  const limit = options.limit ?? 20;
   const rows = (sql: string): Row[] => db.prepare(sql).all();
   const scalar = (sql: string): number => Number(Object.values(rows(sql)[0] ?? {})[0]);
   const listed = (sql: string, say: (r: Row) => string): string[] =>
-    rows(`${sql} LIMIT 20`).map(say);
+    rows(`${sql} LIMIT ${limit}`).map(say);
   const checks: Check[] = [];
   const check = (name: string, problems: string[], note?: string) =>
     checks.push(note === undefined ? { name, problems } : { name, problems, note });
@@ -211,8 +217,20 @@ export function checkDatabase(db: DatabaseSync): Check[] {
     [
       ...(goalRows > 300 ? [] : [`only ${goalRows} goals to check`]),
       ...listed(
-        `SELECT id FROM shots WHERE outcome_group = 0 AND period <= 4 AND (x <= ${L / 2} OR ex < 119.5 OR ey < ${post1 - 0.5} OR ey > ${post2 + 0.5} OR (ez IS NOT NULL AND ez > 2.67))`,
-        (r) => `goal ${String(r.id)}`,
+        `SELECT id, match_id, x, ex, ey, ez FROM shots WHERE outcome_group = 0 AND period <= 4 AND ((x <= ${L / 2} AND id NOT IN (${Object.keys(verifiedGoals).join(',') || '0'})) OR ex < 119.5 OR ey < ${post1 - 0.5} OR ey > ${post2 + 0.5} OR (ez IS NOT NULL AND ez > 2.67))`,
+        (r) => {
+          const why = [
+            Number(r.x) <= L / 2 ? `shot from the own half (x ${String(r.x)})` : '',
+            Number(r.ex) < 119.5 ? `ends short of the goal line (x ${String(r.ex)})` : '',
+            Number(r.ey) < post1 - 0.5 || Number(r.ey) > post2 + 0.5
+              ? `ends outside the posts (y ${String(r.ey)})`
+              : '',
+            r.ez !== null && Number(r.ez) > 2.67
+              ? `ends over the bar (z ${Number(r.ez)})`
+              : '',
+          ].filter(Boolean);
+          return `goal ${String(r.id)} (match ${String(r.match_id)}): ${why.join('; ')}`;
+        },
       ),
     ],
     `${goalRows} goals`,
@@ -236,6 +254,53 @@ export function checkDatabase(db: DatabaseSync): Check[] {
     ...listed(
       `SELECT m.id FROM matches m WHERE NOT EXISTS (SELECT 1 FROM search_terms s WHERE s.kind = 3 AND s.ref = m.id)`,
       (r) => `match ${String(r.id)} has no terms`,
+    ),
+  ]);
+
+  // Orphans: nothing is listed that nothing refers to, and nothing refers to what is not listed
+  check('orphans: every competition, season, stage, team and player is used', [
+    ...listed(
+      `SELECT c.id FROM competitions c WHERE NOT EXISTS (SELECT 1 FROM seasons s WHERE s.competition_id = c.id)`,
+      (r) => `competition ${String(r.id)} has no season`,
+    ),
+    ...listed(
+      `SELECT s.competition_id AS c, s.id AS s FROM seasons s WHERE NOT EXISTS (SELECT 1 FROM matches m WHERE m.competition_id = s.competition_id AND m.season_id = s.id)`,
+      (r) => `season ${String(r.c)}/${String(r.s)} has no match`,
+    ),
+    ...listed(
+      `SELECT st.id, st.name FROM stages st WHERE NOT EXISTS (SELECT 1 FROM matches m WHERE m.stage_id = st.id)`,
+      (r) => `stage ${String(r.id)} "${String(r.name)}" has no match`,
+    ),
+    ...listed(
+      `SELECT t.id FROM teams t WHERE NOT EXISTS (SELECT 1 FROM matches m WHERE m.home_team_id = t.id) AND NOT EXISTS (SELECT 1 FROM matches m WHERE m.away_team_id = t.id)`,
+      (r) => `team ${String(r.id)} played no match`,
+    ),
+    ...listed(
+      `SELECT p.id FROM players p WHERE NOT EXISTS (SELECT 1 FROM shots s WHERE s.player_id = p.id) OR NOT EXISTS (SELECT 1 FROM match_players mp WHERE mp.player_id = p.id)`,
+      (r) => `player ${String(r.id)} has no shot, or is on no match list`,
+    ),
+    ...listed(
+      `SELECT mp.match_id, mp.player_id FROM match_players mp WHERE NOT EXISTS (SELECT 1 FROM shots s WHERE s.match_id = mp.match_id AND s.player_id = mp.player_id)`,
+      (r) =>
+        `match ${String(r.match_id)}: player ${String(r.player_id)} is listed and never shot`,
+    ),
+    ...listed(
+      `SELECT m.id FROM matches m WHERE NOT EXISTS (SELECT 1 FROM shots s WHERE s.match_id = m.id)`,
+      (r) => `match ${String(r.id)} has no shots`,
+    ),
+    ...listed(
+      `SELECT m.id FROM matches m WHERE m.home_team_id = m.away_team_id`,
+      (r) => `match ${String(r.id)}: a team plays itself`,
+    ),
+    ...listed(
+      `SELECT date, home_team_id AS h, away_team_id AS a, COUNT(*) AS n FROM matches GROUP BY date, home_team_id, away_team_id HAVING n > 1`,
+      (r) =>
+        `${String(r.n)} matches on ${String(r.date)} between teams ${String(r.h)} and ${String(r.a)}`,
+    ),
+    ...listed(
+      `SELECT t.term, t.kind, t.ref FROM search_terms t WHERE (t.kind = 1 AND NOT EXISTS (SELECT 1 FROM players p WHERE p.id = t.ref)) OR (t.kind = 2 AND NOT EXISTS (SELECT 1 FROM teams x WHERE x.id = t.ref)) OR (t.kind = 3 AND NOT EXISTS (SELECT 1 FROM matches m WHERE m.id = t.ref))`,
+      (r) =>
+        `search term "${String(r.term)}" points at ${String(r.kind)}/${String(r.ref)}, which is not there`,
     ),
   ]);
 

@@ -17,6 +17,7 @@ import {
   wordsOf,
   type Outcome,
 } from '@shotmap/schema';
+import { releaseDateOf } from './release.config';
 import type { MatchRecord } from './rich';
 
 /** Search term kinds, in `search_terms.kind`. */
@@ -80,7 +81,15 @@ CREATE TABLE matches (
   away_own_goals INTEGER NOT NULL,
   FOREIGN KEY (competition_id, season_id) REFERENCES seasons(competition_id, id)
 );
-CREATE INDEX matches_date ON matches(date);
+-- Every way the match list is filtered, in the order it is shown (date, kick-off, id), so a page is
+-- an ordered range read that stops at its limit: reading the whole table for each page is 3,959 rows
+-- read, billed, for every filtered request.
+CREATE INDEX matches_date ON matches(date, kickoff, id);
+CREATE INDEX matches_competition ON matches(competition_id, date, kickoff, id);
+CREATE INDEX matches_season ON matches(competition_id, season_id, date, kickoff, id);
+CREATE INDEX matches_stage ON matches(stage_id, date, kickoff, id);
+CREATE INDEX matches_home ON matches(home_team_id, date, kickoff, id);
+CREATE INDEX matches_away ON matches(away_team_id, date, kickoff, id);
 
 -- The players who shot in a match, as that match's lineup names them, in order of first shot.
 CREATE TABLE match_players (
@@ -119,7 +128,8 @@ CREATE TABLE shots (
   play_pattern INTEGER NOT NULL,
   first_time INTEGER NOT NULL CHECK (first_time IN (0, 1))
 );
-CREATE INDEX shots_player_match ON shots(player_id, match_id);
+-- A player's shots in the order they are served (match, then position): no sort, and a limit stops the read.
+CREATE INDEX shots_player_match ON shots(player_id, match_id, seq);
 CREATE UNIQUE INDEX shots_match_seq ON shots(match_id, seq);
 
 -- Typeahead: every word of a player, team or match name, normalised. A prefix is a range scan.
@@ -139,6 +149,12 @@ export interface DbInput {
   /** In sort order; a stage's id is its position. */
   stages: string[];
   matches: MatchRecord[];
+  /** When the release is cut, `YYYY-MM-DD` (release.config.ts). Half of the release's name. */
+  releaseDate?: string;
+  /** More rows for the meta table (what was repaired, left out): provenance, in no hash. */
+  extraMeta?: Record<string, string>;
+  /** Other names a team has had, by team id: searchable, shown nowhere. */
+  teamAliases?: ReadonlyMap<number, readonly string[]>;
 }
 
 const mostCommon = (values: string[]): string => {
@@ -227,7 +243,11 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
   const addTeam = insert('teams', ['id', 'name']);
   for (const [teamId, name] of [...teamNames].sort(([a], [b]) => a - b)) {
     addTeam(teamId, name);
-    addTerms(TERM_KIND.team, teamId, name);
+    addTerms(
+      TERM_KIND.team,
+      teamId,
+      [name, ...(input.teamAliases?.get(teamId) ?? [])].join(' '),
+    );
   }
 
   // Players: StatsBomb id is the key. The display name is the one lineups use most often.
@@ -408,11 +428,19 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
       );
   }
 
-  const release = `r${hash.digest('hex').slice(0, 12)}`;
+  // The release names the data twice: when it was cut, and a hash of what is in it (the same
+  // data on another day is a new release, deliberately; different data on one day is too).
+  const contentHash = hash.digest('hex').slice(0, 12);
+  const date = input.releaseDate ?? releaseDateOf();
+  const release = `${date}.${contentHash}`;
   // The meta rows are not part of the hash: the release is one of them.
   const addMeta = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
   for (const [key, value] of [
     ['release', release],
+    ['release_date', date],
+    ['content_hash', contentHash],
+    // When this file was built: provenance only. It is in no hash and no cache key.
+    ['built_at', new Date().toISOString()],
     ['source_ref', input.ref],
     ['schema_version', String(SCHEMA_VERSION)],
     ['hero_match', String(input.hero)],
@@ -421,6 +449,7 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
     ['count_shots', String(counts.shots ?? 0)],
     ['count_players', String(counts.players ?? 0)],
     ['count_teams', String(counts.teams ?? 0)],
+    ...Object.entries(input.extraMeta ?? {}),
   ] as const)
     addMeta.run(key, value);
 

@@ -76,3 +76,22 @@ export function useDelayed(active: boolean, ms: number): boolean {
   }, [active, ms]);
   return active && late;
 }
+
+/**
+ * The value, one paint late. What is built from it comes after the frame that answered the input,
+ * so a tap shows its first response (a ring, a dimmed map) before the heavier thing it also opens.
+ */
+export function useAfterPaint<T>(value: T): T {
+  const [late, setLate] = useState(value);
+  useEffect(() => {
+    let timer = 0;
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => setLate(value), 0);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [value]);
+  return late;
+}

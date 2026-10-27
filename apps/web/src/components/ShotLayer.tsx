@@ -1,13 +1,22 @@
-import { useRef, useState } from 'preact/hooks';
-import type { Shot } from '../data/shots';
+import { useMemo, useRef, useState } from 'preact/hooks';
+import type { Outcome } from '@shotmap/schema';
 import { drawOrder } from '../lib/geometry';
 import { markPath } from '../lib/marks';
+import { memo } from '../lib/memo';
 import type { Frame } from './frame';
 import './shots.css';
 
-/** A shot placed on the pitch being drawn (team 2 is mirrored on the full pitch). */
+/**
+ * A mark on the pitch being drawn. It carries only what the layer needs, not a shot, so any
+ * source can feed it: one match's shots, one player's across many matches.
+ */
 export interface MapShot {
-  shot: Shot;
+  /** Unique among the marks drawn: the layer's key, its selection and its tab stop. */
+  id: number;
+  outcome: Outcome;
+  xg: number;
+  /** What assistive technology says for this mark. */
+  label: string;
   /** Where it was taken and where it ended, in the drawn pitch's own coordinates. */
   x: number;
   y: number;
@@ -42,8 +51,31 @@ export interface ShotLayerProps {
 /** A tap or click counts if it lands within this many CSS pixels of a mark's centre. */
 const HIT_PX = 24;
 
-const shotLabel = (s: Shot) =>
-  `${s.player}, ${s.shootout ? 'penalty shootout' : `minute ${s.min}`}, ${s.outcomeLabel.toLowerCase()}, ${s.xg.toFixed(2)} expected goals`;
+interface MarkProps {
+  s: MapShot;
+  /** The one mark in the tab order. */
+  tab: boolean;
+  pressed: boolean;
+}
+
+/**
+ * One mark. Memoised: selecting or focusing a shot changes two of them, so the other couple of
+ * hundred a player's map has are not diffed (nor is their path computed again).
+ */
+const Mark = memo(function Mark({ s, tab, pressed }: MarkProps) {
+  return (
+    <path
+      class={`shot shot--${s.outcome}`}
+      d={markPath(s.outcome, s.x, s.y, s.r)}
+      data-i={s.id}
+      role="button"
+      tabindex={tab ? 0 : -1}
+      aria-pressed={pressed}
+      aria-label={s.label}
+      style={`--d:${s.delay}ms`}
+    />
+  );
+});
 
 export function ShotLayer(props: ShotLayerProps) {
   const { frame, shots, selectedId, intro, onSelect } = props;
@@ -53,7 +85,7 @@ export function ShotLayer(props: ShotLayerProps) {
   const [tabId, setTabId] = useState<number | null>(null);
   /** The shot whose trajectory is drawn: hovered, else keyboard-focused, else selected. */
   const activeId = [hoverId, focusId, selectedId].find(
-    (id) => id !== null && shots.some((s) => s.shot.id === id),
+    (id) => id !== null && shots.some((s) => s.id === id),
   );
   const svg = useRef<SVGSVGElement>(null);
   const group = useRef<SVGGElement>(null);
@@ -84,7 +116,7 @@ export function ShotLayer(props: ShotLayerProps) {
     const raw = (e.target as Element).getAttribute('data-i');
     if (raw === null) return;
     const id = Number(raw);
-    const at = shots.findIndex((s) => s.shot.id === id);
+    const at = shots.findIndex((s) => s.id === id);
     if (at < 0) return;
     let to: number | null = null;
     switch (e.key) {
@@ -113,16 +145,15 @@ export function ShotLayer(props: ShotLayerProps) {
     }
     if (to !== null) {
       e.preventDefault();
-      focusShot(shots[Math.min(shots.length - 1, Math.max(0, to))]?.shot.id);
+      focusShot(shots[Math.min(shots.length - 1, Math.max(0, to))]?.id);
     }
   };
 
-  const active = shots.find((s) => s.shot.id === activeId);
-  const selected = shots.find((s) => s.shot.id === selectedId);
-  const roving = shots.some((s) => s.shot.id === tabId)
-    ? tabId
-    : (shots[0]?.shot.id ?? null);
-  const goals = shots.filter((s) => s.shot.outcome === 'goal');
+  const active = shots.find((s) => s.id === activeId);
+  const selected = shots.find((s) => s.id === selectedId);
+  const roving = shots.some((s) => s.id === tabId) ? tabId : (shots[0]?.id ?? null);
+  const goals = useMemo(() => shots.filter((s) => s.outcome === 'goal'), [shots]);
+  const drawn = useMemo(() => drawOrder(shots), [shots]);
 
   return (
     <svg
@@ -135,12 +166,12 @@ export function ShotLayer(props: ShotLayerProps) {
       focusable="false"
       onPointerMove={(e) => {
         if (e.pointerType === 'mouse')
-          setHoverId(nearest(e.clientX, e.clientY)?.shot.id ?? null);
+          setHoverId(nearest(e.clientX, e.clientY)?.id ?? null);
       }}
       onPointerLeave={() => setHoverId(null)}
       onClick={(e) => {
         const hit = nearest(e.clientX, e.clientY);
-        onSelect(hit && hit.shot.id !== selectedId ? hit.shot.id : null);
+        onSelect(hit && hit.id !== selectedId ? hit.id : null);
       }}
       onKeyDown={onKeyDown}
       onFocusIn={(e) => {
@@ -164,7 +195,7 @@ export function ShotLayer(props: ShotLayerProps) {
         {intro
           ? goals.map((s) => (
               <circle
-                key={s.shot.id}
+                key={s.id}
                 class="ping"
                 cx={s.x}
                 cy={s.y}
@@ -174,22 +205,21 @@ export function ShotLayer(props: ShotLayerProps) {
             ))
           : null}
 
-        {drawOrder(
-          shots.map((s) => ({ ...s, xg: s.shot.xg, outcome: s.shot.outcome })),
-        ).map((s) => (
+        {/* Focus mode dims this one group, not every mark: a restyle of a couple of hundred
+            elements was most of what a tap cost on a player's map. */}
+        <g class="marks">
+          {drawn.map((s) => (
+            <Mark key={s.id} s={s} tab={s.id === roving} pressed={s.id === selectedId} />
+          ))}
+        </g>
+        {/* The active mark again, above the dimmed ones; the real one stays in the group. */}
+        {active ? (
           <path
-            key={s.shot.id}
-            class={`shot shot--${s.shot.outcome}`}
-            d={markPath(s.shot.outcome, s.x, s.y, s.r)}
-            data-i={s.shot.id}
-            data-active={s.shot.id === active?.shot.id}
-            role="button"
-            tabindex={s.shot.id === roving ? 0 : -1}
-            aria-pressed={s.shot.id === selectedId}
-            aria-label={shotLabel(s.shot)}
-            style={`--d:${s.delay}ms`}
+            class={`shot shot--${active.outcome}`}
+            d={markPath(active.outcome, active.x, active.y, active.r)}
+            aria-hidden="true"
           />
-        ))}
+        ) : null}
 
         {selected ? (
           <circle

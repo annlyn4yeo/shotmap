@@ -1,0 +1,216 @@
+/* The player page: a heading, a table of seasons, and the same shot panel as the match page. */
+
+/* The footer waits for the player (see lib/busy.ts): a thing that comes into being did not move. */
+:root[data-busy] .credit {
+  display: none;
+}
+
+.player {
+  display: grid;
+  /* Not `auto`: a column that sizes to its content would take the table's width, not scroll it. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  max-width: 62rem;
+  margin-inline: auto;
+}
+
+.player-wait {
+  min-height: 100svh;
+}
+
+.player-head {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-4);
+  border-top: var(--rule) solid var(--ink);
+}
+
+.player-name {
+  margin: 0;
+  font-size: var(--step-3);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-heading);
+}
+
+.player-name:focus-visible {
+  outline-offset: 4px;
+}
+
+.player-full,
+.player-teams {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.player-teams {
+  margin-top: var(--space-2);
+  font-size: var(--step--1);
+}
+
+.player-section {
+  margin: 0 0 var(--space-3);
+  font-size: var(--step-1);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-heading);
+}
+
+/* The table of seasons: figures in tabular numerals, right-aligned, under a heavy rule. */
+.seasons-scroll {
+  overflow-x: auto;
+  border-top: var(--rule) solid var(--ink);
+}
+
+.seasons-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+}
+
+.seasons-table th,
+.seasons-table td {
+  padding: 0 var(--space-2);
+  border-bottom: var(--hair) solid var(--line-3);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.seasons-table th[data-num='true'],
+.seasons-table td.num {
+  text-align: right;
+}
+
+.seasons-table tfoot th,
+.seasons-table tfoot td {
+  border-top: var(--rule) solid var(--ink);
+  border-bottom: 0;
+  font-weight: var(--weight-bold);
+}
+
+.seasons-table tr[data-current='true'] {
+  background: var(--paper-2);
+}
+
+/* On a phone the figures scroll sideways and the season stays put, so a column is never anonymous. */
+.seasons-table thead th:first-child,
+.seasons-table tbody th,
+.seasons-table tfoot th {
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+}
+
+.seasons-table tr[data-current='true'] th {
+  background: var(--paper-2);
+}
+
+.seasons-sort {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.seasons-table th[aria-sort='ascending'] .seasons-sort,
+.seasons-table th[aria-sort='descending'] .seasons-sort {
+  color: var(--ink);
+  font-weight: var(--weight-bold);
+}
+
+/* Room for the arrow whether or not it shows, so sorting never moves a heading. */
+.seasons-arrow {
+  display: inline-block;
+  min-width: 1ch;
+}
+
+/* A flex container drops the spaces between its parts, so the gap is the space. */
+.seasons-pick {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.3em;
+  min-height: 2.75rem;
+  color: inherit;
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+}
+
+.seasons-pick[aria-current='true'] {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
+.seasons-year {
+  color: var(--ink-2);
+  font-weight: var(--weight-regular);
+}
+
+/* The map keeps its place, dimmed, while the next season loads. */
+.player-panel {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.player-panel[data-loading='true'] {
+  opacity: 0.55;
+}
+
+.player-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  color: var(--ink-2);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* On the detail card (ink on paper, inverted): the way to the shot's match. */
+.player-card-match {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: var(--hair) solid currentColor;
+}
+
+.player-card-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: inherit;
+  font-weight: var(--weight-bold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.player-many {
+  max-width: none;
+  margin-block: 0;
+}
+
+.player-narrow {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.player-narrow a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.25em;
+  min-height: 2.75rem;
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+  text-underline-offset: 3px;
+}

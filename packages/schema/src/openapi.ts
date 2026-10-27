@@ -55,7 +55,7 @@ const responseHeaders = {
   },
   [HEADERS.release]: {
     description: 'The data release, the same value as `release` in the body.',
-    schema: { type: 'string', pattern: '^r[0-9a-f]{12}$' },
+    schema: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}\\.[0-9a-f]{12}$' },
   },
 };
 
@@ -141,7 +141,7 @@ export function buildApiMarkdown(): string {
     '## Every response',
     '',
     '```json',
-    '{ "release": "r9733bd358bf4", "attribution": { "source": "StatsBomb", "text": "Data by StatsBomb", "url": "https://statsbomb.com", "terms": "https://github.com/statsbomb/open-data" }, "data": { } }',
+    '{ "release": "2026-10-27.9733bd358bf4", "attribution": { "source": "StatsBomb", "text": "Data by StatsBomb", "url": "https://statsbomb.com", "terms": "https://github.com/statsbomb/open-data" }, "data": { } }',
     '```',
     '',
     '- `release` is the data release: `r` and 12 hex digits, a hash of everything ingest wrote. It changes exactly when the data does.',
@@ -196,7 +196,7 @@ export function buildApiMarkdown(): string {
     '',
     `- Match pages: ${LIMITS.matchesPageDefault} by default, ${LIMITS.matchesPageMax} at most; \`next\` is an opaque cursor.`,
     `- Search: ${LIMITS.searchPerKind} results per kind. Every word typed must be the start of a word.`,
-    `- A player's shots: ${LIMITS.playerShotsMax} rows, then \`too_many_rows\`: use density.`,
+    `- A player's shots: ${LIMITS.playerShotsDefault} rows unless \`limit\` asks for more, ${LIMITS.playerShotsMax} at most, with \`truncated\` saying whether there were more.`,
     `- Density \`step\`: ${LIMITS.densitySteps.join(', ')} yards.`,
     '',
   );

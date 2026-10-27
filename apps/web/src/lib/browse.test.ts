@@ -24,12 +24,13 @@ describe('the browse page in the URL', () => {
       team: 779,
       from: '2022-11-20',
       to: '2022-12-18',
+      order: 'oldest' as const,
       limit: 100,
       cursor: '2022-12-18_1700_3869685',
     };
     const search = formatBrowse(query);
     expect(search).toBe(
-      '?competition=43&season=106&stage=7&team=779&from=2022-11-20&to=2022-12-18&limit=100&cursor=2022-12-18_1700_3869685',
+      '?competition=43&season=106&stage=7&team=779&from=2022-11-20&to=2022-12-18&order=oldest&limit=100&cursor=2022-12-18_1700_3869685',
     );
     expect(parseBrowse(search)).toEqual(query);
   });
@@ -42,6 +43,18 @@ describe('the browse page in the URL', () => {
     ).toEqual(EMPTY_BROWSE);
     expect(parseBrowse('?limit=200').limit).toBe(200);
     expect(parseBrowse('?limit=999').limit).toBe(PAGE_SIZES[0]);
+  });
+
+  it('shows the latest matches first, and writes the order down only when it is the other way', () => {
+    expect(EMPTY_BROWSE.order).toBe('newest');
+    expect(parseBrowse('?order=oldest').order).toBe('oldest');
+    expect(parseBrowse('?order=newest').order).toBe('newest');
+    expect(parseBrowse('?order=sideways').order).toBe('newest');
+    expect(formatBrowse({ ...EMPTY_BROWSE, order: 'oldest' })).toBe('?order=oldest');
+    expect(formatBrowse({ ...EMPTY_BROWSE, order: 'newest' })).toBe('');
+    // Another order is another list: it starts again from the first page.
+    const at = { ...EMPTY_BROWSE, cursor: 'x_y_1' };
+    expect(browseUrl(at, { order: 'oldest' })).toBe('/matches?order=oldest');
   });
 
   it('keeps a season only inside its competition', () => {
@@ -63,7 +76,10 @@ describe('the browse page in the URL', () => {
   });
 
   it('asks the API for the same list, always with a limit', () => {
-    expect(apiPathOf(EMPTY_BROWSE)).toBe('/v1/matches?limit=50');
+    expect(apiPathOf(EMPTY_BROWSE)).toBe('/v1/matches?order=newest&limit=50');
+    expect(apiPathOf({ ...EMPTY_BROWSE, order: 'oldest' })).toBe(
+      '/v1/matches?order=oldest&limit=50',
+    );
     expect(
       apiPathOf({
         ...EMPTY_BROWSE,
@@ -72,7 +88,7 @@ describe('the browse page in the URL', () => {
         cursor: 'a_b_2',
         from: '2022-01-01',
       }),
-    ).toBe('/v1/matches?team=779&from=2022-01-01&cursor=a_b_2&limit=200');
+    ).toBe('/v1/matches?team=779&from=2022-01-01&cursor=a_b_2&order=newest&limit=200');
   });
 });
 

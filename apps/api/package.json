@@ -9,7 +9,9 @@
     "test": "vitest run",
     "build": "wrangler deploy --dry-run --outdir dist",
     "load": "wrangler d1 execute DB --local --file=../../packages/ingest/out/shotmap.sql",
-    "latency": "node scripts/latency.mjs"
+    "load:catalogue": "wrangler d1 execute DB --local --file=../../packages/ingest/out/catalogue/shotmap.sql",
+    "latency": "node scripts/latency.mjs",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@shotmap/queries": "workspace:*",

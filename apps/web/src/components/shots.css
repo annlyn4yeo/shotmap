@@ -5,8 +5,6 @@
  */
 .shot {
   --c: var(--ink);
-  cursor: pointer;
-  transition: opacity var(--dur-fast) ease;
   outline: none;
   fill: color-mix(in srgb, var(--c) 14%, transparent);
   stroke: var(--c);
@@ -62,8 +60,24 @@
   overflow: visible;
 }
 
-/* Focus mode: while a shot is hovered, focused or selected, the rest step back. */
-.shot-layer[data-focus='true'] .shot:not([data-active='true']) {
+/*
+ * The layer finds the mark under a pointer itself (the nearest within reach), so a mark is never
+ * the target of one: hit-testing a couple of hundred non-scaling strokes was a third of the time
+ * a tap took on a player's map.
+ */
+.shot-layer .shot {
+  pointer-events: none;
+}
+
+/*
+ * Focus mode: while a shot is hovered, focused or selected, the rest step back. One group is
+ * dimmed, not each mark, and the active mark is drawn again above it (see ShotLayer).
+ */
+.shot-layer[data-focus='true'] {
+  cursor: pointer;
+}
+
+.shot-layer[data-focus='true'] .marks {
   opacity: 0.28;
 }
 
@@ -111,14 +125,14 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .map[data-intro='true'] .shot {
+  .map[data-intro='true'] .marks .shot {
     transform-box: fill-box;
     transform-origin: center;
     animation: plot var(--dur-base) var(--ease-out) backwards;
     animation-delay: var(--d);
   }
 
-  .map[data-intro='true'] .shot--goal {
+  .map[data-intro='true'] .marks .shot--goal {
     animation: goal-in 640ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
     animation-delay: var(--d);
   }
@@ -219,10 +233,6 @@
   flex: none;
   width: 1.4rem;
   height: 1.4rem;
-}
-
-.chip-mark .shot {
-  cursor: inherit;
 }
 
 .chip-count {

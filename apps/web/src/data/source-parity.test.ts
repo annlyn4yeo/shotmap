@@ -78,17 +78,27 @@ describe.skipIf(!API_URL)(
       vi.unstubAllGlobals();
     });
 
-    it('gives the same match list', async () => {
+    it('gives the same match list for the matches the static files have', async () => {
       const a = await use('api', () => fromApi.loadIndex());
       const s = await use('static', () => fromFiles.loadIndex());
-      expect({ stages: a.stages, competitions: a.competitions }).toEqual({
-        stages: s.stages,
-        competitions: s.competitions,
+      // The API may hold the whole catalogue; the static files hold three competitions. Those
+      // three, season for season and row for row, are what must agree.
+      const inStatic = s.competitions.map((c) => {
+        const mine = a.competitions.find((x) => x.id === c.id);
+        return {
+          ...mine,
+          seasons: (mine?.seasons ?? []).filter((x) =>
+            c.seasons.some((y) => y.id === x.id),
+          ),
+        };
       });
+      expect(inStatic).toEqual(s.competitions);
+      // The stages the files name come first, in the files' order, so their numbers are the same.
+      expect(a.stages.slice(0, s.stages.length)).toEqual(s.stages);
       expect(
-        a.competitions.flatMap((c) => c.seasons.flatMap((x) => x.matches)),
-      ).toHaveLength(149);
-    });
+        a.competitions.flatMap((c) => c.seasons.flatMap((x) => x.matches)).length,
+      ).toBeGreaterThanOrEqual(149);
+    }, 180_000);
 
     it('gives the same match and the same decoded shots for all 149 matches', async () => {
       const ids = staticIndex.competitions.flatMap((c) =>

@@ -41,7 +41,7 @@ describe('the Worker inside workerd, on a real D1', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toMatch(/^application\/json/);
     expect(res.headers.get('cache-control')).toBe(CACHE_CONTROL.floating);
-    expect(res.headers.get('etag')).toMatch(/^"r[0-9a-f]{12}-[0-9a-f]{16}"$/);
+    expect(res.headers.get('etag')).toMatch(/^"\d{4}-\d{2}-\d{2}\.[0-9a-f]{12}-[0-9a-f]{16}"$/);
     const body = envelope(MetaSchema).parse(await res.json());
     expect(body.attribution).toEqual(ATTRIBUTION);
     expect(body.data.counts.shots).toBe(3721);
@@ -89,7 +89,12 @@ describe('the Worker inside workerd, on a real D1', () => {
   });
 
   it('never answers /v1 with HTML', async () => {
-    for (const path of ['/v1/nope', '/v1/players/5503', '/v1/matches/abc']) {
+    for (const path of [
+      '/v1/nope',
+      '/v1/compare',
+      '/v1/matches/abc',
+      '/v1/players/5503/density',
+    ]) {
       const res = await get(path);
       expect(res.headers.get('content-type'), path).toMatch(/^application\/json/);
       expect(ErrorSchema.parse(await res.json()).error.message).toBeTruthy();

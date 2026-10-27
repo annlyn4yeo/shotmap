@@ -1,5 +1,5 @@
-import { LIMITS, QUERY_ALLOW } from '@shotmap/schema';
-import type { MatchQuery } from '@shotmap/queries';
+import { ENUMS, LIMITS, OUTCOMES, QUERY_ALLOW, type Outcome } from '@shotmap/schema';
+import type { MatchQuery, ShotFilters } from '@shotmap/queries';
 
 /** A request the client got wrong: 400, never cached. */
 export class BadRequest extends Error {
@@ -59,6 +59,73 @@ function date(params: Map<string, string>, key: string): string | undefined {
   return v;
 }
 
+/** A comma-separated list of known values, each at most once: `?outcome=goal,saved`. */
+function list<T extends string | number>(
+  text: string,
+  known: readonly T[],
+  parse: (item: string) => T | undefined,
+  what: string,
+): T[] {
+  const seen = new Set<T>();
+  for (const item of text.split(',')) {
+    const value = parse(item);
+    if (value === undefined || !known.includes(value))
+      throw new BadRequest(
+        `${what} has a value that is not known: "${item.slice(0, 20)}"`,
+      );
+    seen.add(value);
+  }
+  return [...seen];
+}
+
+/**
+ * /v1/players/:id/shots: the filters, and how many rows to give at most. `season` means nothing
+ * without its competition (season ids are only unique within one), so it is refused alone.
+ */
+export function playerShotsQuery(pairs: readonly [string, string][]): {
+  filters: ShotFilters;
+  limit: number;
+} {
+  const params = new Map(pairs);
+  const filters: ShotFilters = {};
+  const competition = int(params, 'competition');
+  const season = int(params, 'season');
+  if (season !== undefined && competition === undefined)
+    throw new BadRequest(
+      'season needs competition: season ids are only unique within one',
+    );
+  if (competition !== undefined) filters.competition = competition;
+  if (season !== undefined) filters.season = season;
+  const period = params.get('period');
+  if (period !== undefined) {
+    if (period !== 'open' && period !== 'shootout')
+      throw new BadRequest('period must be open or shootout');
+    filters.period = period;
+  }
+  const outcome = params.get('outcome');
+  if (outcome !== undefined)
+    filters.outcome = list<Outcome>(
+      outcome,
+      OUTCOMES,
+      (item) => OUTCOMES.find((o) => o === item),
+      'outcome',
+    );
+  const type = params.get('type');
+  if (type !== undefined)
+    filters.type = list<number>(
+      type,
+      ENUMS.shotType.map((t) => t.id),
+      (item) => (INT.test(item) ? Number(item) : undefined),
+      'type',
+    );
+  const limit = int(params, 'limit');
+  if (limit !== undefined && limit < 1) throw new BadRequest('limit must be at least 1');
+  return {
+    filters,
+    limit: Math.min(limit ?? LIMITS.playerShotsDefault, LIMITS.playerShotsMax),
+  };
+}
+
 /** /v1/search: the words typed are required, and the number of results per kind is capped. */
 export function searchQuery(pairs: readonly [string, string][]): {
   q: string;
@@ -91,5 +158,11 @@ export function matchQuery(pairs: readonly [string, string][]): MatchQuery {
     q.limit = Math.min(limit, LIMITS.matchesPageMax);
   }
   set('cursor', params.get('cursor'));
+  const order = params.get('order');
+  if (order !== undefined) {
+    if (order !== 'oldest' && order !== 'newest')
+      throw new BadRequest('order must be oldest or newest');
+    q.order = order;
+  }
   return q;
 }
