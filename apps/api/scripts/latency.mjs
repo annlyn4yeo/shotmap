@@ -16,8 +16,11 @@ import { gzipSync } from 'node:zlib';
 const BASE = (process.env.API_URL ?? 'http://127.0.0.1:8787').replace(/\/$/, '');
 const RUNS = Number(process.env.RUNS ?? 40);
 const FINAL = 3869685;
-// The most prolific player in the data: 203 shots in 41 matches.
+// The most prolific player in the data: 2,666 shots in 587 matches in the whole catalogue (203 in
+// 41 in the three competitions of the static files), so his answers are the biggest there are.
 const MESSI = 5503;
+// The team with the most matches (Barcelona): the biggest team filter.
+const BARCELONA = 217;
 // Set LOCAL=1 when measuring wrangler dev: latency budgets are only enforced against a real edge.
 const LOCAL = process.env.LOCAL === '1' || /127\.0\.0\.1|localhost/.test(BASE);
 
@@ -28,7 +31,10 @@ const budgets = {
     match: 3_000,
     shots: 6_000,
     player: 3_000,
-    playerShots: 6_000,
+    // What the player page asks for (300 marks), and what the API gives when not asked (1,000).
+    playerShotsPage: 8_000,
+    playerShotsDefault: 20_000,
+    search: 3_000,
   },
   /** Server time to the last byte, p95, for a cache hit and for a D1-backed miss. */
   hitMs: 50,
@@ -49,11 +55,30 @@ const pct = (values, p) =>
 const release = (await (await fetch(`${BASE}/v1/meta`)).json()).release;
 const endpoints = [
   ['meta', `/v1/meta?v=${release}`, 'meta'],
-  ['matches page (200)', `/v1/matches?limit=200&v=${release}`, 'matchesPage'],
+  [
+    'matches, newest (200)',
+    `/v1/matches?order=newest&limit=200&v=${release}`,
+    'matchesPage',
+  ],
+  [
+    'matches of one team (200)',
+    `/v1/matches?team=${BARCELONA}&order=newest&limit=200&v=${release}`,
+    'matchesPage',
+  ],
   ['match (the final)', `/v1/matches/${FINAL}?v=${release}`, 'match'],
   ['shots (the final)', `/v1/matches/${FINAL}/shots?v=${release}`, 'shots'],
   ['player (Messi)', `/v1/players/${MESSI}?v=${release}`, 'player'],
-  ['player shots (all 203)', `/v1/players/${MESSI}/shots?v=${release}`, 'playerShots'],
+  [
+    'player shots (page: 300)',
+    `/v1/players/${MESSI}/shots?period=open&limit=300&v=${release}`,
+    'playerShotsPage',
+  ],
+  [
+    'player shots (default 1000)',
+    `/v1/players/${MESSI}/shots?v=${release}`,
+    'playerShotsDefault',
+  ],
+  ['search (two words)', `/v1/search?q=lionel%20mes&v=${release}`, 'search'],
 ];
 
 let failed = false;
@@ -101,6 +126,10 @@ for (const [label, path, key] of endpoints) {
   );
 }
 console.log(
-  `\nBudgets: gzip meta <= ${budgets.gzipBytes.meta} B, matches page <= ${budgets.gzipBytes.matchesPage} B, match <= ${budgets.gzipBytes.match} B, shots <= ${budgets.gzipBytes.shots} B, player <= ${budgets.gzipBytes.player} B, a player's shots <= ${budgets.gzipBytes.playerShots} B${LOCAL ? '' : `; hit p95 <= ${budgets.hitMs} ms, miss <= ${budgets.missMs} ms`}.`,
+  `\nBudgets (gzip): ${Object.entries(budgets.gzipBytes)
+    .map(([name, bytes]) => `${name} <= ${bytes} B`)
+    .join(
+      ', ',
+    )}${LOCAL ? '' : `; hit p95 <= ${budgets.hitMs} ms, miss <= ${budgets.missMs} ms`}.`,
 );
 if (failed) process.exitCode = 1;
