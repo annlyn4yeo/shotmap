@@ -2,12 +2,15 @@ import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 // The Workers tests load the dump into D1 with this splitter: it must give back the statements.
 import { splitDump } from '../../../apps/api/test/workers/split-dump';
+import { rowsWritten } from './archive';
 import { checkDatabase } from './checks';
 import {
   MAX_ROWS_PER_INSERT,
   MAX_STATEMENT_BYTES,
   TABLE_ORDER,
   buildDump,
+  cutIntoParts,
+  planDump,
   sqlLiteral,
 } from './dump';
 import { DB_PATH, haveDb } from './testdb';
@@ -66,7 +69,8 @@ describe.skipIf(!haveDb)('the SQL dump', () => {
     const indexes = statements.flatMap((s, i) =>
       s.startsWith('CREATE') && /INDEX/.test(s) ? [i] : [],
     );
-    expect(indexes.length).toBe(3);
+    // shots_player_match and shots_match_seq, and the six on matches
+    expect(indexes.length).toBe(8);
     expect(indexes.every((i) => i > lastInsert)).toBe(true);
   });
 
@@ -108,5 +112,60 @@ describe.skipIf(!haveDb)('the SQL dump', () => {
     expect(
       (copy.prepare('SELECT COUNT(*) AS n FROM shots').get() as { n: number }).n,
     ).toBe(3721);
+  });
+});
+
+// On the Free plan a release is loaded a part a day: parts of at most 90,000 rows written, each
+// standing alone, which together are the whole database, and which can be run again safely.
+describe.skipIf(!haveDb)('the dump cut into parts', () => {
+  const source = new DatabaseSync(DB_PATH, { readOnly: true });
+  const plan = planDump(source, { partsFriendly: true });
+
+  it('counts what loading costs the way the estimator does, index entries included', () => {
+    const total = plan.writes.reduce((a, b) => a + b, 0);
+    expect(total).toBe(rowsWritten(source).total);
+  });
+
+  it('puts the indexes in before any row, so each part pays only for its own rows', () => {
+    const firstInsert = plan.statements.findIndex((s) => s.startsWith('INSERT'));
+    const indexes = plan.statements.flatMap((s, i) =>
+      /^CREATE (UNIQUE )?INDEX/.test(s) ? [i] : [],
+    );
+    expect(indexes.length).toBeGreaterThan(0);
+    expect(indexes.every((i) => i < firstInsert)).toBe(true);
+    expect(plan.statements.filter((s) => s.startsWith('INSERT INTO')).length).toBe(0);
+  });
+
+  it('cuts between statements into parts that fit the budget, each one standing alone', () => {
+    const parts = cutIntoParts(plan, 5_000);
+    expect(parts.length).toBeGreaterThan(2);
+    for (const part of parts) {
+      expect(part.writes).toBeLessThanOrEqual(5_000);
+      expect(part.statements[0]).toBe('PRAGMA defer_foreign_keys = true;');
+    }
+    expect(parts.reduce((n, p) => n + p.writes, 0)).toBe(
+      plan.writes.reduce((a, b) => a + b, 0),
+    );
+    expect(() => cutIntoParts(plan, 50)).toThrow(/over a part's 50/);
+  });
+
+  it('loads back, part by part, into exactly the database it came from, and survives a part run twice', () => {
+    const parts = cutIntoParts(plan, 5_000);
+    const copy = new DatabaseSync(':memory:');
+    parts.forEach((part, i) => {
+      copy.exec(part.statements.join('\n'));
+      // A part that stopped halfway is run again: the same rows, not an error, not a second copy.
+      if (i === 1) copy.exec(part.statements.join('\n'));
+    });
+    for (const table of TABLE_ORDER) {
+      const count = (db: DatabaseSync) =>
+        (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+      expect(count(copy), table).toBe(count(source));
+    }
+    expect(
+      checkDatabase(copy)
+        .filter((c) => c.problems.length)
+        .map((c) => c.name),
+    ).toEqual([]);
   });
 });

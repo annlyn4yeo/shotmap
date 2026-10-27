@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "data": "tsx src/build-data.ts",
+    "catalogue": "tsx src/catalogue.ts",
+    "explain": "tsx src/explain.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "fixture": "tsx src/write-fixture.ts"
