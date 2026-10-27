@@ -4,7 +4,7 @@ import { Picker, PickerButton } from './components/Picker';
 import { ShotMap } from './components/ShotMap';
 import { MatchLine, Scoreline } from './components/Scoreline';
 import { Wordmark } from './components/Wordmark';
-import { lazyPage } from './components/lazy';
+import { LazyPage } from './components/lazy';
 import { boardFromDetail, type BoardMeta } from './data/board';
 import type { LoadedMatch } from './data/match';
 import { useDelayed } from './lib/hooks';
@@ -14,10 +14,6 @@ import './app.css';
 
 /** A load shorter than this never shows a skeleton. */
 const SKELETON_AFTER_MS = 150;
-
-// The pages other than the match are their own files, fetched the first time they are shown.
-const Browse = lazyPage(() => import('./pages/Browse'), true);
-const Soon = lazyPage(() => import('./pages/Soon'));
 
 function Credit() {
   return (
@@ -141,13 +137,7 @@ function OtherPage() {
       </header>
 
       <main class="main">
-        {page.name === 'matches' ? (
-          <Browse />
-        ) : page.name === 'missing' ? (
-          <Missing />
-        ) : (
-          <Soon page={page} />
-        )}
+        {page.name === 'missing' ? <Missing /> : <LazyPage page={page} />}
       </main>
 
       <Credit />

@@ -1,45 +1,54 @@
 import type { ComponentType } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import type { Page } from '../lib/router';
 import { ErrorState } from './States';
 
+type PageComponent = ComponentType<{ page: Page }>;
+
 /**
- * A page that is its own file, fetched the first time it is shown (route-level code splitting,
- * no library). The match page is not one: it is the first thing on the screen, so it stays in
- * the first file. A page that cannot be fetched says so, with a way to try again.
+ * The pages that are their own files, fetched the first time they are shown (route-level code
+ * splitting, no library). The match page is not one: it is the first thing on the screen, so it
+ * stays in the first file. `tall` pages keep a screen's height while they load, so the footer
+ * cannot move up onto the screen when they arrive.
  */
-export function lazyPage<P extends object>(
-  load: () => Promise<{ default: ComponentType<P> }>,
-  /** A tall page keeps its place at least a screen high while it loads, so the footer cannot move up. */
-  tall = false,
-): ComponentType<P> {
-  let loaded: ComponentType<P> | undefined;
-  let failed = false;
-  return function LazyPage(props: P) {
-    const [, rerender] = useState(0);
-    useEffect(() => {
-      if (loaded) return;
-      failed = false;
-      load().then(
-        (module) => {
-          loaded = module.default;
-          rerender((n) => n + 1);
-        },
-        () => {
-          failed = true;
-          rerender((n) => n + 1);
-        },
-      );
-    }, []);
-    if (loaded) {
-      const Page = loaded;
-      return <Page {...props} />;
-    }
-    return failed ? (
-      <ErrorState what="page" />
-    ) : (
-      <p class="status label" role="status" data-tall={tall || undefined}>
-        Loading
-      </p>
+const FILES: Partial<
+  Record<Page['name'], { load: () => Promise<{ default: PageComponent }>; tall: boolean }>
+> = {
+  matches: { load: () => import('../pages/Browse'), tall: true },
+  player: { load: () => import('../pages/Player'), tall: true },
+  compare: { load: () => import('../pages/Soon'), tall: false },
+};
+
+const loaded = new Map<string, PageComponent>();
+const failed = new Set<string>();
+
+/** Shows the page the router chose, fetching its file first if it has not been needed before. */
+export function LazyPage({ page }: { page: Page }) {
+  const [, rerender] = useState(0);
+  const file = FILES[page.name];
+  const name = page.name;
+  useEffect(() => {
+    if (!file || loaded.has(name)) return;
+    failed.delete(name);
+    file.load().then(
+      (module) => {
+        loaded.set(name, module.default);
+        rerender((n) => n + 1);
+      },
+      () => {
+        failed.add(name);
+        rerender((n) => n + 1);
+      },
     );
-  };
+  }, [name]);
+
+  const Page = loaded.get(name);
+  if (Page) return <Page page={page} />;
+  return failed.has(name) ? (
+    <ErrorState what="page" />
+  ) : (
+    <p class="status label" role="status" data-tall={file?.tall || undefined}>
+      Loading
+    </p>
+  );
 }

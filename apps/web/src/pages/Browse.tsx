@@ -8,6 +8,7 @@ import {
   parseBrowse,
   type BrowseQuery,
 } from '../lib/browse';
+import { useFooterHidden } from '../lib/busy';
 import { whole } from '../lib/route';
 import { useStore } from '../lib/store';
 import { useWindow } from '../lib/windowing';
@@ -49,18 +50,9 @@ export default function Browse() {
     if (claimArrival()) title.current?.focus();
   }, [search]);
 
-  // Until the first rows arrive the list is empty, and they would push the footer down while
-  // it is on screen: a layout shift. The footer stays unpainted (a hidden thing cannot shift)
-  // until there is something above it (see browse.css).
+  // Until the first rows arrive there is nothing above the footer, so it is not there either.
   const first = list === null && status === 'loading';
-  useEffect(() => {
-    const root = document.documentElement;
-    if (first) root.dataset.busy = '';
-    else delete root.dataset.busy;
-    return () => {
-      delete root.dataset.busy;
-    };
-  }, [first]);
+  useFooterHidden(first);
 
   useEffect(() => {
     const ask = new AbortController();
