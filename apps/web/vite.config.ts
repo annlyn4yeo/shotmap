@@ -63,6 +63,52 @@ function inlineHeroData(): Plugin {
   };
 }
 
+/**
+ * A top-level 404.html turns Cloudflare Pages' automatic single-page fallback off (it answers
+ * every unknown path with the app and a 200, /v1/* included); public/_redirects then names the
+ * app's own paths. This is that page. It is made from the app's own stylesheet and classes, so
+ * it has the same paper, rules and type and no colours of its own.
+ */
+function emitNotFoundPage(): Plugin {
+  return {
+    name: 'shotmap:not-found-page',
+    generateBundle(_options, bundle) {
+      const css = Object.keys(bundle).find((name) =>
+        /^assets\/index-[\w-]+\.css$/.test(name),
+      );
+      if (!css) return;
+      this.emitFile({
+        type: 'asset',
+        fileName: '404.html',
+        source: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>No such page | Shotmap</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/${css}" />
+  </head>
+  <body>
+    <main class="main">
+      <section class="state">
+        <h1 class="state-title">No such page</h1>
+        <p>Nothing lives at this address.</p>
+        <div class="state-actions">
+          <a class="state-button" data-primary href="/">The 2022 final</a>
+          <a class="state-button" href="/matches">Browse the matches</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+`,
+      });
+    },
+  };
+}
+
 // /v1 is same-origin in production (a Worker route). Locally, dev and preview forward it to
 // the Worker: `pnpm api` for the local one, or API_URL=https://... for another.
 const api = {
@@ -70,7 +116,7 @@ const api = {
 };
 
 export default defineConfig({
-  plugins: [preact(), preloadCriticalFont(), inlineHeroData()],
+  plugins: [preact(), preloadCriticalFont(), inlineHeroData(), emitNotFoundPage()],
   server: { proxy: api },
   preview: { proxy: api },
   build: {
