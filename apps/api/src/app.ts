@@ -18,11 +18,19 @@ import {
   exportMatchList,
   exportMatchShots,
   exportMeta,
+  exportSearch,
   releaseOf,
   type Db,
 } from '@shotmap/queries';
 import { d1Db } from './d1';
-import { BadRequest, allowedQuery, idOf, matchQuery, type RouteId } from './params';
+import {
+  BadRequest,
+  allowedQuery,
+  idOf,
+  matchQuery,
+  searchQuery,
+  type RouteId,
+} from './params';
 
 export interface Env {
   DB: D1Database;
@@ -222,6 +230,13 @@ export function createApp(options: AppOptions = {}) {
     serve(c, 'getMatchShots', (db) =>
       exportMatchShots(db, idOf(c.req.param('id'), 'the match id')),
     ),
+  );
+
+  app.get('/v1/search', (c) =>
+    serve(c, 'search', (db, query) => {
+      const { q, limit } = searchQuery(query);
+      return exportSearch(db, q, limit);
+    }),
   );
 
   // Anything else under /v1: a JSON 404 for GET (including endpoints that are planned but not

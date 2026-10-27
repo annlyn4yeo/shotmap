@@ -65,6 +65,7 @@ export const QUERY_ALLOW = {
   ],
   getMatch: ['v'],
   getMatchShots: ['v'],
+  search: ['q', 'limit', 'v'],
 } as const;
 
 /** The HTTP status of each error code. */

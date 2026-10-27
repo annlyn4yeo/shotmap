@@ -59,6 +59,19 @@ function date(params: Map<string, string>, key: string): string | undefined {
   return v;
 }
 
+/** /v1/search: the words typed are required, and the number of results per kind is capped. */
+export function searchQuery(pairs: readonly [string, string][]): {
+  q: string;
+  limit: number;
+} {
+  const params = new Map(pairs);
+  const q = (params.get('q') ?? '').trim();
+  if (q === '') throw new BadRequest('q is required: the words to look for');
+  const limit = int(params, 'limit');
+  if (limit !== undefined && limit < 1) throw new BadRequest('limit must be at least 1');
+  return { q, limit: Math.min(limit ?? LIMITS.searchPerKind, LIMITS.searchPerKind) };
+}
+
 /** /v1/matches: every filter is optional; limit is capped, never trusted. */
 export function matchQuery(pairs: readonly [string, string][]): MatchQuery {
   const params = new Map(pairs);
