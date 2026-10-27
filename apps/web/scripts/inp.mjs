@@ -88,10 +88,12 @@ async function session(browser, url) {
 
   await step('open the picker', () => tap('.pick-button'), 800);
   await step(`search "${SEARCH}"`, () => page.keyboard.type(SEARCH, { delay: 90 }), 600);
+  // The results come from the API once typing pauses; wait for the matches before tapping one.
+  await page.waitForSelector('[id^="opt-match-"]', { timeout: 15_000 });
   await step(
     'pick a match',
     async () => {
-      await tap('.picker-row');
+      await tap('[id^="opt-match-"]');
       await page.waitForFunction("!document.querySelector('dialog[open]')");
       await page.waitForSelector('.shot-layer');
     },
