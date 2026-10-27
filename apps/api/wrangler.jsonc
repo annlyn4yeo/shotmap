@@ -18,8 +18,9 @@
   "env": {
     "staging": {
       "name": "shotmap-api-staging",
-      // vars are not inherited by an environment: empty means no CORS header, until the web app has an origin.
-      "vars": { "WEB_ORIGIN": "" },
+      // vars are not inherited by an environment. The one origin allowed to read this API from a
+      // browser: the Pages preview of the web app (a different origin from this Worker, so CORS).
+      "vars": { "WEB_ORIGIN": "https://preview.shotmap.pages.dev" },
       "d1_databases": [
         { "binding": "DB", "database_name": "shotmap-staging", "database_id": "08d9f3ac-8ba7-414e-bbbf-7661f0634d97" }
       ]
