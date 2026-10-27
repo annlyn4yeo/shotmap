@@ -5,8 +5,8 @@ import {
   type MatchFile,
   type ShotsData,
 } from '@shotmap/schema';
-import { createApiClient, type ApiClient } from '../api/client';
 import { catalogFromApi, matchFromApi } from './api-source';
+import { api } from './client';
 import { decodeMatch, type Catalog, type LoadedMatch } from './match';
 import { LEGACY_ENUMS, fromStaticMatch } from './static-source';
 import { assertIndex, assertMatch } from './validate';
@@ -34,12 +34,6 @@ export function dataSource(): DataSource {
   const asked = new URLSearchParams(location.search).get('data');
   return asked === 'api' || asked === 'static' ? asked : fixed;
 }
-
-let client: ApiClient | undefined;
-const api = (): ApiClient =>
-  (client ??= createApiClient({
-    base: (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, ''),
-  }));
 
 const requests = new Map<string, Promise<unknown>>();
 /** Resolved values, so a view can render synchronously when the data is already here. */

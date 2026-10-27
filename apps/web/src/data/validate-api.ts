@@ -1,4 +1,10 @@
-import type { MatchDetail, MatchList, Meta, ShotsData } from '@shotmap/schema';
+import type {
+  MatchDetail,
+  MatchList,
+  Meta,
+  SearchResult,
+  ShotsData,
+} from '@shotmap/schema';
 import { fail, isInt, isNum, isObject } from './validate';
 
 /**
@@ -121,4 +127,23 @@ export function assertShots(data: unknown): ShotsData {
       fail('shots', 'column ez is neither numbers nor null');
   }
   return data as unknown as ShotsData;
+}
+
+export function assertSearch(data: unknown): SearchResult {
+  if (!isObject(data) || typeof data.q !== 'string') return fail('search', 'no q');
+  for (const kind of ['players', 'teams', 'matches'] as const) {
+    const list = data[kind];
+    if (!isList(list)) return fail('search', `no ${kind}`);
+    for (const item of list)
+      if (!isObject(item) || !isInt(item.id)) return fail('search', `bad ${kind} entry`);
+  }
+  for (const p of [...(data.players as object[]), ...(data.teams as object[])])
+    if (!isText((p as { name?: unknown }).name))
+      return fail('search', 'a name is missing');
+  for (const m of data.matches as object[]) {
+    const { date, home, away } = m as Record<string, unknown>;
+    if (!isText(date) || !isText(home) || !isText(away))
+      return fail('search', 'bad match entry');
+  }
+  return data as unknown as SearchResult;
 }

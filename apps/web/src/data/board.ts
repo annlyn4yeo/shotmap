@@ -1,4 +1,3 @@
-import type { MatchEntry } from '../lib/search';
 import type { MatchDetail } from '@shotmap/schema';
 
 export interface BoardTeam {
@@ -8,9 +7,7 @@ export interface BoardTeam {
 }
 
 /**
- * What the scoreboard needs. It can be built from a match or from a match-list
- * row alone, so the board can change the instant a match is chosen, before that
- * match's shots have loaded.
+ * What the scoreboard needs, from a match.
  */
 export interface BoardMeta {
   home: BoardTeam;
@@ -28,13 +25,4 @@ export const boardFromDetail = (m: MatchDetail): BoardMeta => ({
   competition: m.competition.name,
   season: m.season.name,
   date: m.date,
-});
-
-export const boardFromEntry = (e: MatchEntry): BoardMeta => ({
-  home: { name: e.home, score: e.homeScore, pens: e.homePens },
-  away: { name: e.away, score: e.awayScore, pens: e.awayPens },
-  stage: e.stage,
-  competition: e.competition,
-  season: e.season,
-  date: e.date,
 });

@@ -4,20 +4,38 @@ import { Picker, PickerButton } from './components/Picker';
 import { ShotMap } from './components/ShotMap';
 import { MatchLine, Scoreline } from './components/Scoreline';
 import { Wordmark } from './components/Wordmark';
-import { boardFromDetail, boardFromEntry, type BoardMeta } from './data/board';
+import { lazyPage } from './components/lazy';
+import { boardFromDetail, type BoardMeta } from './data/board';
 import type { LoadedMatch } from './data/match';
 import { useDelayed } from './lib/hooks';
-import { findEntry } from './lib/search';
 import { useStore } from './lib/store';
-import { matchIdOf, store } from './state/app';
+import { claimArrival, store } from './state/app';
 import './app.css';
 
 /** A load shorter than this never shows a skeleton. */
 const SKELETON_AFTER_MS = 150;
 
-export function App() {
-  const index = useStore(store, (s) => s.index);
-  const id = useStore(store, matchIdOf);
+// The pages other than the match are their own files, fetched the first time they are shown.
+const Browse = lazyPage(() => import('./pages/Browse'), true);
+const Soon = lazyPage(() => import('./pages/Soon'));
+
+function Credit() {
+  return (
+    <footer class="credit">
+      <span class="credit-logo" data-slot="statsbomb-logo" aria-hidden="true" />
+      <p>
+        Data by{' '}
+        <a href="https://statsbomb.com" rel="noopener">
+          StatsBomb
+        </a>
+        .
+      </p>
+    </footer>
+  );
+}
+
+/** The match page: `/` and `/match/:id`. The first thing on the screen, so it is in the first file. */
+function MatchPage() {
   const match = useStore(store, (s) => s.match);
 
   const slow = useDelayed(match.status === 'loading', SKELETON_AFTER_MS);
@@ -32,13 +50,11 @@ export function App() {
         ? lastReady.current
         : null;
 
-  // The board can come from the match-list row alone, so it changes the instant a match
-  // is chosen. Nothing here waits for the list: the match brings its own.
-  const board: BoardMeta | null = useMemo(() => {
-    if (shown) return boardFromDetail(shown.detail);
-    const entry = index ? findEntry(index, id) : undefined;
-    return entry ? boardFromEntry(entry) : null;
-  }, [shown, index, id]);
+  // Nothing here waits for anything but the match: it brings its own teams, score and players.
+  const board: BoardMeta | null = useMemo(
+    () => (shown ? boardFromDetail(shown.detail) : null),
+    [shown],
+  );
 
   useEffect(() => {
     document.title = board
@@ -73,18 +89,74 @@ export function App() {
         ) : null}
       </main>
 
-      <footer class="credit">
-        <span class="credit-logo" data-slot="statsbomb-logo" aria-hidden="true" />
-        <p>
-          Data by{' '}
-          <a href="https://statsbomb.com" rel="noopener">
-            StatsBomb
-          </a>
-          .
-        </p>
-      </footer>
-
+      <Credit />
       <Picker />
     </div>
   );
+}
+
+function Missing() {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    document.title = 'No such page | Shotmap';
+    if (claimArrival()) heading.current?.focus();
+  }, []);
+  return (
+    <section class="state" aria-labelledby="missing-title">
+      <h1 id="missing-title" class="state-title" ref={heading} tabIndex={-1}>
+        No such page
+      </h1>
+      <p>Nothing lives at this address.</p>
+      <div class="state-actions">
+        <a class="state-button" data-primary href="/">
+          The 2022 final
+        </a>
+        <a class="state-button" href="/matches">
+          Browse the matches
+        </a>
+      </div>
+    </section>
+  );
+}
+
+/** Every other page: the same paper and header, without a scoreboard, and it scrolls. */
+function OtherPage() {
+  const page = useStore(store, (s) => s.page);
+  return (
+    <div class="app" data-flow>
+      <header class="board">
+        <div class="board-inner">
+          <div class="board-top">
+            <a class="home-link" href="/" aria-label="Shotmap, home">
+              <Wordmark />
+            </a>
+            <nav class="board-meta" aria-label="Main">
+              <a class="nav-link" href="/matches">
+                All matches
+              </a>
+            </nav>
+            <PickerButton />
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        {page.name === 'matches' ? (
+          <Browse />
+        ) : page.name === 'missing' ? (
+          <Missing />
+        ) : (
+          <Soon page={page} />
+        )}
+      </main>
+
+      <Credit />
+      <Picker />
+    </div>
+  );
+}
+
+export function App() {
+  const page = useStore(store, (s) => s.page);
+  return page.name === 'match' ? <MatchPage /> : <OtherPage />;
 }

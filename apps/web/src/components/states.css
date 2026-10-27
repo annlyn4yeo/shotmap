@@ -90,3 +90,10 @@
     opacity: 0.55;
   }
 }
+
+/* The same, as a link: the way out of an empty or missing page. */
+a.state-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
