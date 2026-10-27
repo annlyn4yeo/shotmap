@@ -175,6 +175,19 @@ export default function Browse() {
           />
         </label>
         <label class="browse-field">
+          <span class="label">Order</span>
+          <select
+            class="browse-input"
+            value={query.order}
+            onChange={(e) =>
+              change({ order: e.currentTarget.value === 'oldest' ? 'oldest' : 'newest' })
+            }
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
+        <label class="browse-field">
           <span class="label">Per page</span>
           <select
             class="browse-input"

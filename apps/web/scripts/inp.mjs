@@ -1,8 +1,9 @@
 // Records INP (Interaction to Next Paint) for a realistic session, under mobile throttling.
 // Lighthouse's navigation run cannot measure INP, so this drives the real page. Two sessions:
 //   match (the default): open the picker, search, pick a match, toggle a filter, select a shot.
-//   player (INP_PAGE=player): the most prolific player's whole career, 203 marks drawn at once:
-//     toggle a filter, select a shot, pick a season, sort the table, go back to every season.
+//   player (INP_PAGE=player): the busiest season anyone has (Cristiano Ronaldo, La Liga 2015/16,
+//     228 marks at once): toggle a filter, select a shot, pick another season, sort the table, then
+//     every season (410 shots: too many for marks, so the page says so).
 // Run `pnpm build` first, then `pnpm inp` (INP_RUNS=5 by default).
 //
 // Method: Chrome's Event Timing API reports every interaction (pointer, keyboard) with
@@ -25,7 +26,7 @@ if (PAGE !== 'match' && PAGE !== 'player') {
   process.exit(1);
 }
 // Where each session starts: the hero match, or the player with the most shots in the data.
-const START = { match: '/', player: '/players/5503' }[PAGE];
+const START = { match: '/', player: '/players/5207?competition=11&season=27' }[PAGE];
 
 // Mobile: the design size (375 px), touch input, 4x CPU slowdown and Lighthouse's
 // simulated slow 4G (150 ms RTT, 1638.4 Kbps down, 675 Kbps up).
@@ -123,23 +124,26 @@ async function session(browser, url) {
     await step('toggle a filter', toggleFilter, 1000);
     await step('select a shot', () => tap('path.shot'), 1000);
   } else {
-    // The career: every shot at once, the heaviest the SVG layer is asked to draw.
+    // One season's marks, the most the SVG layer is asked to draw (228).
     await step('toggle a filter', toggleFilter, 1000);
     await step('select a shot', () => tap('path.shot'), 1000);
     await step(
       'pick a season',
       async () => {
+        const before = await page.evaluate('location.search');
         await tap('.seasons-pick', 0);
-        await page.waitForFunction("document.querySelectorAll('path.shot').length < 100");
+        await page.waitForFunction(
+          `location.search !== ${JSON.stringify(before)} && document.querySelector('.player-panel')?.dataset.loading === 'false'`,
+        );
       },
       1000,
     );
     await step('sort the table', () => tap('.seasons-sort', 2), 800);
     await step(
-      'every season again',
+      'every season (too many to draw)',
       async () => {
         await tap('tfoot .seasons-pick');
-        await page.waitForFunction("document.querySelectorAll('path.shot').length > 100");
+        await page.waitForSelector('.player-many');
       },
       1000,
     );

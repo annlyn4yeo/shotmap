@@ -6,7 +6,7 @@ import { whole } from './route';
  *
  *   /matches?competition=43&season=106&stage=7&team=779&from=2022-11-20&to=2022-12-18&limit=100&cursor=...
  *
- * Anything missing or not understood is ignored, so a hand-edited URL never breaks the page.
+ * Newest first is the default and is not written down; `order=oldest` is. Anything missing or not understood is ignored, so a hand-edited URL never breaks the page.
  */
 export const PAGE_SIZES = [50, 100, 200] as const;
 
@@ -19,6 +19,8 @@ export interface BrowseQuery {
   from: string | null;
   /** Last day, YYYY-MM-DD. */
   to: string | null;
+  /** The latest matches come first unless this says otherwise. */
+  order: 'newest' | 'oldest';
   limit: number;
   /** Where the page starts: the API's opaque cursor from the page before. */
   cursor: string | null;
@@ -31,6 +33,7 @@ export const EMPTY_BROWSE: BrowseQuery = {
   team: null,
   from: null,
   to: null,
+  order: 'newest',
   limit: PAGE_SIZES[0],
   cursor: null,
 };
@@ -55,6 +58,7 @@ export function parseBrowse(search: string): BrowseQuery {
     team: whole(params.get('team')),
     from: day('from'),
     to: day('to'),
+    order: params.get('order') === 'oldest' ? 'oldest' : 'newest',
     limit: PAGE_SIZES.find((size) => size === limit) ?? EMPTY_BROWSE.limit,
     cursor: cursor !== null && CURSOR.test(cursor) ? cursor : null,
   };
@@ -72,6 +76,7 @@ function pairsOf(q: BrowseQuery): [string, string][] {
   add('team', q.team);
   add('from', q.from);
   add('to', q.to);
+  add('order', q.order === EMPTY_BROWSE.order ? null : q.order);
   add('limit', q.limit === EMPTY_BROWSE.limit ? null : q.limit);
   add('cursor', q.cursor);
   return pairs;
@@ -85,8 +90,9 @@ export const formatBrowse = (q: BrowseQuery): string => queryOf(pairsOf(q));
 
 /** The API request for a page of this list. */
 export function apiPathOf(q: BrowseQuery): string {
-  const pairs = pairsOf(q).filter(([key]) => key !== 'limit');
-  return `/v1/matches${queryOf([...pairs, ['limit', String(q.limit)]])}`;
+  // The API's own default is oldest first, so the order is always said, and so is the limit.
+  const pairs = pairsOf(q).filter(([key]) => key !== 'limit' && key !== 'order');
+  return `/v1/matches${queryOf([...pairs, ['order', q.order], ['limit', String(q.limit)]])}`;
 }
 
 /** The URL of the list with these changes. A new filter starts again from the first page. */

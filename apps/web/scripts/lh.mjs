@@ -27,15 +27,24 @@ const PAGES = [
     budget: { performance: 90, accessibility: 100, lcpMs: 2000, cls: 0 },
     report: 'lh-report-matches.html',
   },
-  // A player page, the one with the most shots in the data (Lionel Messi, 203 shots in 41
-  // matches, every one drawn): its own file, then the profile, then the shots and the map, so the
-  // app's 2.0 s LCP, and CLAUDE.md's 95 since nothing here is allowed to be slow. (With the
-  // per-mark intro it scored 90: the page does not play it.)
+  // The player with the most shots in the data (Lionel Messi: 2,666 in 587 matches), his page as it
+  // opens: the biggest profile there is and a table of 18 seasons, and no marks, because a career is
+  // far more than the page draws. Its own file, then the profile: the app's 2.0 s LCP, and
+  // CLAUDE.md's 95, since nothing here is allowed to be slow.
   {
     name: 'player',
     path: '/players/5503',
     budget: { performance: 95, accessibility: 100, lcpMs: 2000, cls: 0 },
     report: 'lh-report-player.html',
+  },
+  // The busiest season anyone has (Cristiano Ronaldo, La Liga 2015/16: 228 shots, every one drawn,
+  // and no season in the data has more than 300): the profile, then the shots, then the marks.
+  // (With the per-mark intro this page scored 90: it plays none.)
+  {
+    name: 'player-season',
+    path: '/players/5207?competition=11&season=27',
+    budget: { performance: 95, accessibility: 100, lcpMs: 2000, cls: 0 },
+    report: 'lh-report-player-season.html',
   },
 ];
 

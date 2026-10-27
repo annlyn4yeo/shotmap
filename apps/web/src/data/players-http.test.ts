@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // The player page's data, through the code the page runs, against a running API (`wrangler dev`
-// in CI, see .github/workflows/ci.yml): the most prolific player in the data, Lionel Messi, who
-// shot in 41 matches.
+// in CI, see .github/workflows/ci.yml): the most prolific player in the data, Lionel Messi. With the
+// three competitions of the static files he shot in 41 matches; in the whole catalogue, 587. The
+// figures that hold either way are asserted from the profile, and the ones that are the same in
+// both (his 2022 World Cup and his 2018/19 La Liga) are named.
 const API_URL = process.env.API_URL;
 const MESSI = 5503;
 
@@ -19,24 +21,32 @@ describe.skipIf(!API_URL)(`the player page's data (${API_URL ?? 'no API_URL'})`,
   });
   afterAll(() => vi.unstubAllEnvs());
 
-  it('has a profile whose seasons are the 41 matches, in two competitions', async () => {
+  it('has a profile whose seasons add up to his career', async () => {
     const messi = await players.loadPlayer(MESSI);
     expect(messi.name).toBe('Lionel Messi');
-    expect(messi.totals.matches).toBe(41);
-    expect(messi.seasons.map((s) => s.matches)).toEqual([34, 7]);
-    expect(messi.seasons.reduce((n, s) => n + s.shots, 0)).toBe(messi.totals.shots);
+    expect(messi.seasons.length).toBeGreaterThanOrEqual(2);
+    for (const field of ['matches', 'shots', 'goals', 'onTarget'] as const)
+      expect(
+        messi.seasons.reduce((n, s) => n + s[field], 0),
+        field,
+      ).toBe(messi.totals[field]);
+    // Two seasons every build has, and what the static files say of them.
+    const of = (c: number, s: number) =>
+      messi.seasons.find((x) => x.competition.id === c && x.season.id === s);
+    expect(of(43, 106)).toMatchObject({ matches: 7, shots: 32, goals: 7 });
+    expect(of(11, 4)).toMatchObject({ matches: 34, shots: 171, goals: 36 });
   });
 
-  it('gives every shot of the career, decoded, from 41 matches, none left out', async () => {
+  it('gives every shot of the career, decoded, none left out when the limit allows', async () => {
     const messi = await players.loadPlayer(MESSI);
     const all = await players.loadPlayerShots(
       messi,
       { competition: null, season: null },
-      300,
+      messi.totals.shots + 1,
     );
     expect(all.truncated).toBe(false);
     expect(all.shots).toHaveLength(messi.totals.shots);
-    expect(new Set(all.shots.map((s) => s.matchId)).size).toBe(41);
+    expect(new Set(all.shots.map((s) => s.matchId)).size).toBe(messi.totals.matches);
     // A shot is unique by its global id, though positions repeat from match to match.
     expect(new Set(all.shots.map((s) => s.shotId)).size).toBe(all.shots.length);
     expect(new Set(all.shots.map((s) => s.id)).size).toBeLessThan(all.shots.length);
