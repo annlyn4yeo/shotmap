@@ -6,7 +6,7 @@ import globals from 'globals';
 // One config for the whole workspace. `projectService` finds the nearest tsconfig.json
 // of each file (apps/web, packages/schema, packages/ingest).
 export default tseslint.config(
-  { ignores: ['**/dist', '**/.wrangler'] },
+  { ignores: ['**/dist', '**/dist-stress', '**/.wrangler'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   prettier,
@@ -51,5 +51,10 @@ export default tseslint.config(
       'eslint.config.js',
     ],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Drives a page: the functions it hands to the browser to run read the page's own globals.
+    files: ['apps/web/scripts/keyboard.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 );

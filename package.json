@@ -18,7 +18,9 @@
     "contrast": "pnpm --filter @shotmap/web contrast",
     "fonts": "pnpm --filter @shotmap/web fonts",
     "data": "pnpm --filter @shotmap/ingest data",
-    "api": "pnpm --filter @shotmap/api dev"
+    "api": "pnpm --filter @shotmap/api dev",
+    "fps": "pnpm --filter @shotmap/web fps",
+    "keyboard": "pnpm --filter @shotmap/web keyboard"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

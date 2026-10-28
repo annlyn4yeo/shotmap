@@ -3,7 +3,11 @@
 //   match (the default): open the picker, search, pick a match, toggle a filter, select a shot.
 //   player (INP_PAGE=player): the busiest season anyone has (Cristiano Ronaldo, La Liga 2015/16,
 //     228 marks at once): toggle a filter, select a shot, pick another season, sort the table, then
-//     every season (410 shots: too many for marks, so the page says so).
+//     every season (the whole career, painted on a canvas).
+//   career (INP_PAGE=career, INP_PLAYER=5503): the heaviest page there is, a whole career of
+//     thousands of shots on the canvas layer: toggle a filter, select a shot, switch to density,
+//     select a square, switch back, walk the list with the arrow keys and open a shot with Enter,
+//     pick a season (back to SVG marks) and every season again (back to the canvas).
 // Run `pnpm build` first, then `pnpm inp` (INP_RUNS=5 by default).
 //
 // Method: Chrome's Event Timing API reports every interaction (pointer, keyboard) with
@@ -21,12 +25,17 @@ const RUNS = Number(process.env.INP_RUNS ?? 5);
 const SEARCH = 'argentina';
 const BUDGET_MS = 200;
 const PAGE = process.env.INP_PAGE ?? 'match';
-if (PAGE !== 'match' && PAGE !== 'player') {
-  console.error('INP_PAGE must be match or player.');
+if (PAGE !== 'match' && PAGE !== 'player' && PAGE !== 'career') {
+  console.error('INP_PAGE must be match, player or career.');
   process.exit(1);
 }
-// Where each session starts: the hero match, or the player with the most shots in the data.
-const START = { match: '/', player: '/players/5207?competition=11&season=27' }[PAGE];
+// Where each session starts: the hero match, the player with the most shots in one season, or
+// the player with the most in a career (Lionel Messi's 2,663, the heaviest page there is).
+const START = {
+  match: '/',
+  player: '/players/5207?competition=11&season=27',
+  career: `/players/${process.env.INP_PLAYER ?? '5503'}`,
+}[PAGE];
 
 // Mobile: the design size (375 px), touch input, 4x CPU slowdown and Lighthouse's
 // simulated slow 4G (150 ms RTT, 1638.4 Kbps down, 675 Kbps up).
@@ -123,7 +132,7 @@ async function session(browser, url) {
     );
     await step('toggle a filter', toggleFilter, 1000);
     await step('select a shot', () => tap('path.shot'), 1000);
-  } else {
+  } else if (PAGE === 'player') {
     // One season's marks, the most the SVG layer is asked to draw (228).
     await step('toggle a filter', toggleFilter, 1000);
     await step('select a shot', () => tap('path.shot'), 1000);
@@ -140,12 +149,97 @@ async function session(browser, url) {
     );
     await step('sort the table', () => tap('.seasons-sort', 2), 800);
     await step(
-      'every season (too many to draw)',
+      'every season (a canvas)',
       async () => {
         await tap('tfoot .seasons-pick');
-        await page.waitForSelector('.player-many');
+        await page.waitForSelector('.map[data-layer="canvas"]');
       },
       1000,
+    );
+  } else {
+    // A whole career on the canvas layer. A tap on the map lands on the busiest part of it, where
+    // there are marks (or squares) within 24 px of any point; the ten places tried cover the box.
+    const tapMap = async () => {
+      const box = await (await page.$('.shot-layer'))?.boundingBox();
+      if (!box) throw new Error('no map to tap');
+      const tries = [
+        [0.5, 0.3],
+        [0.45, 0.4],
+        [0.55, 0.25],
+        [0.5, 0.5],
+        [0.4, 0.2],
+      ];
+      for (const [fx, fy] of tries) {
+        await page.touchscreen.tap(box.x + box.width * fx, box.y + box.height * fy);
+        await sleep(250);
+        if (await page.$('.card')) return;
+      }
+      throw new Error('a tap on the map opened nothing');
+    };
+    const view = (nth) => tap('.player-view button', nth);
+    const waitFor = (selector) => page.waitForSelector(selector, { timeout: 15_000 });
+    await waitFor('.map[data-layer="canvas"]');
+    await step('toggle a filter', toggleFilter, 1000);
+    await step('select a shot', tapMap, 1000);
+    await step(
+      'close it',
+      async () => {
+        await tap('.card-close');
+        await page.waitForFunction("!document.querySelector('.card')");
+      },
+      800,
+    );
+    await step(
+      'switch to density',
+      async () => {
+        await view(1);
+        await waitFor('.map[data-layer="density"] .density path');
+      },
+      1200,
+    );
+    await step('select a square', tapMap, 1000);
+    await step(
+      'switch back to the shots',
+      async () => {
+        await view(0);
+        await waitFor('.map[data-layer="canvas"]');
+      },
+      1200,
+    );
+    // The list beside the canvas, by keyboard: focus its tab stop, then four arrow keys and Enter.
+    await step(
+      'walk the list and open a shot (keys)',
+      async () => {
+        await page.focus('.proxy button[tabindex="0"]');
+        // A person's keys, not a burst: pressed with no gap they queue behind each other, and the
+        // later ones are measured waiting. 120 ms is about a quick typist; held down, a key repeats
+        // every 30 ms and the list keeps up with that too (see the walk in `pnpm keyboard`).
+        for (const key of ['ArrowRight', 'ArrowRight', 'PageDown', 'Enter']) {
+          await page.keyboard.press(key);
+          await sleep(120);
+        }
+        await waitFor('.card');
+      },
+      1000,
+    );
+    await step(
+      'pick a season (back to marks)',
+      async () => {
+        const before = await page.evaluate('location.search');
+        await tap('.seasons-pick', 0);
+        await page.waitForFunction(
+          `location.search !== ${JSON.stringify(before)} && document.querySelector('.player-panel')?.dataset.loading === 'false'`,
+        );
+      },
+      1200,
+    );
+    await step(
+      'every season (a canvas again)',
+      async () => {
+        await tap('tfoot .seasons-pick');
+        await waitFor('.map[data-layer="canvas"]');
+      },
+      1200,
     );
   }
   await sleep(500);
@@ -191,7 +285,12 @@ let chrome;
 let browser;
 try {
   chrome = await chromeLauncher.launch({
-    chromeFlags: ['--headless=new', '--no-sandbox'],
+    // The window must be as big as the page emulated in it. A headless window is 800x600 by default,
+    // and what an emulated 375x812 page draws below y = 600 is outside it: those frames have nothing
+    // to show, so the browser does not present them, and the interaction that made them is timed
+    // until some later frame does (seconds, for a key press that moves a ring at the bottom of the
+    // screen). The career session found it; it had inflated every interaction drawn in that strip.
+    chromeFlags: ['--headless=new', '--no-sandbox', '--window-size=800,1000'],
   });
   browser = await puppeteer.connect({
     browserURL: `http://127.0.0.1:${chrome.port}`,
