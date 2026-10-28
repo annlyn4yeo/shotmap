@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useId } from 'preact/hooks';
 import { PITCH } from '@shotmap/schema';
 import { memo } from '../lib/memo';
@@ -13,6 +14,11 @@ interface PitchProps {
   from?: number;
   /** Contours of constant shooting angle: circles through both goalposts. Off by default. */
   contours?: boolean;
+  /**
+   * Drawn on the surface, under the lines, in pitch coordinates: the density view's squares go
+   * here so the box and the goal frame stay drawn over them.
+   */
+  children?: ComponentChildren;
 }
 
 const { length: L, width: W } = PITCH;
@@ -61,6 +67,7 @@ export const Pitch = memo(function Pitch({
   orientation = 'vertical',
   from,
   contours = false,
+  children,
 }: PitchProps) {
   const id = useId();
   const frame = frameFor(mode, orientation, from);
@@ -113,6 +120,8 @@ export const Pitch = memo(function Pitch({
           height={W}
           style={cropped ? `fill:url(#${id}f)` : undefined}
         />
+
+        {children}
 
         {contours ? (
           <g clip-path={`url(#${id}c)`}>

@@ -19,6 +19,15 @@ export interface ShotPanelProps {
   shots: readonly MapShot[];
   selectedId: number | null;
   onSelect: (id: number | null) => void;
+  /**
+   * What draws the marks and takes the pointer, in place of the SVG layer: the canvas for a
+   * career, the density view's layer. It is given the map's own box to fill.
+   */
+  layer?: ComponentChildren;
+  /** Drawn on the pitch's surface under its lines (the density view's squares). */
+  underlay?: ComponentChildren;
+  /** Names the layer in use, for the stylesheet. */
+  layerName?: 'svg' | 'canvas' | 'density';
   /** The map's title, and the label of the group of marks, for assistive technology. */
   title: string;
   label: string;
@@ -52,16 +61,25 @@ export function ShotPanel(props: ShotPanelProps) {
       <StatsStrip shots={props.stats} />
       <div ref={props.stageRef ?? null} class="stage">
         <div class="map-frame" style={`--ratio:${(frame.w / frame.h).toFixed(4)}`}>
-          <div ref={props.mapRef ?? null} class="map" data-intro={intro}>
-            <Pitch title={props.title} mode="half" orientation="vertical" from={from} />
-            <ShotLayer
-              frame={frame}
-              shots={shots}
-              selectedId={props.selectedId}
-              intro={intro}
-              label={props.label}
-              onSelect={props.onSelect}
-            />
+          <div
+            ref={props.mapRef ?? null}
+            class="map"
+            data-intro={intro}
+            data-layer={props.layerName ?? 'svg'}
+          >
+            <Pitch title={props.title} mode="half" orientation="vertical" from={from}>
+              {props.underlay}
+            </Pitch>
+            {props.layer ?? (
+              <ShotLayer
+                frame={frame}
+                shots={shots}
+                selectedId={props.selectedId}
+                intro={intro}
+                label={props.label}
+                onSelect={props.onSelect}
+              />
+            )}
           </div>
           {props.empty}
           {props.card}

@@ -1,8 +1,15 @@
-import { decodeShotsStrict, type MatchDetail, type Player } from '@shotmap/schema';
+import {
+  decodeShotsStrict,
+  type Density,
+  type MatchDetail,
+  type Outcome,
+  type Player,
+} from '@shotmap/schema';
+import { DENSITY_STEP } from '../lib/density';
 import { api } from './client';
 import type { Shot } from './shots';
 import { assertMatchDetail } from './validate-api';
-import { assertPlayer, assertPlayerShots } from './validate-player';
+import { assertDensity, assertPlayer, assertPlayerShots } from './validate-player';
 
 const options = (signal?: AbortSignal) => (signal ? { signal } : {});
 
@@ -47,6 +54,31 @@ export async function loadPlayerShots(
     }),
     truncated: data.truncated,
   };
+}
+
+/**
+ * Where a player's open-play shots started, counted into squares by the database: for the whole
+ * career or one competition season, and only the outcomes asked for (none given means all). A few
+ * hundred squares however many shots there are, which is why this exists beside the shots.
+ */
+export function loadPlayerDensity(
+  profile: Player,
+  where: { competition: number | null; season: number | null },
+  outcomes: readonly Outcome[] | null,
+  signal?: AbortSignal,
+): Promise<Density> {
+  const query = new URLSearchParams();
+  query.set('step', String(DENSITY_STEP));
+  if (where.competition !== null && where.season !== null) {
+    query.set('competition', String(where.competition));
+    query.set('season', String(where.season));
+  }
+  query.set('period', 'open');
+  if (outcomes) query.set('outcome', [...outcomes].join(','));
+  return api().get(`/v1/players/${profile.id}/density?${query.toString()}`, {
+    validate: assertDensity,
+    ...options(signal),
+  });
 }
 
 /** A match, to say which one a shot belongs to. Cached with the rest of what was asked of /v1. */

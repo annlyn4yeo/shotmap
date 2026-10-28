@@ -1,31 +1,60 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { PITCH, type MatchDetail, type Outcome, type Player } from '@shotmap/schema';
+import {
+  OUTCOMES,
+  PITCH,
+  type Density,
+  type MatchDetail,
+  type Outcome,
+  type Player,
+} from '@shotmap/schema';
 import { ApiError } from '../api/client';
+import {
+  BinCard,
+  DensityCells,
+  DensityLayer,
+  DensityLegend,
+  binAnnouncement,
+} from '../components/Density';
 import { DetailCard } from '../components/DetailCard';
 import { OutcomeFilter } from '../components/OutcomeFilter';
+import { ShotCanvas } from '../components/ShotCanvas';
 import type { MapShot } from '../components/ShotLayer';
 import { ShotPanel } from '../components/ShotPanel';
 import { HALFWAY, useMapFrame } from '../components/useMapFrame';
 import {
   loadMatchDetail,
   loadPlayer,
+  loadPlayerDensity,
   loadPlayerShots,
   type PlayerShots,
 } from '../data/players';
+import { shotAnnouncement } from '../data/announce';
 import { shotLabel, type Shot } from '../data/shots';
 import { useFooterHidden } from '../lib/busy';
+import {
+  DENSITY_STEP,
+  binKey,
+  binsOf,
+  busiest,
+  cellOf,
+  describeDensity,
+  drawableBins,
+} from '../lib/density';
 import { tally } from '../lib/derive';
 import { markRadius } from '../lib/geometry';
 import { useAfterPaint } from '../lib/hooks';
 import {
-  MARK_LIMIT,
+  KEYS_HINT,
+  SHOTS_MAX,
+  describeShots,
   matchHref,
-  narrowTo,
   parsePlayerView,
   playerUrl,
+  rendererFor,
   selectedSeason,
-  shotsIn,
   sortSeasons,
+  type MapMode,
   type PlayerView,
   type SeasonRow,
   type SortKey,
@@ -282,7 +311,7 @@ function SeasonTable({ player, view }: { player: Player; view: PlayerView }) {
   );
 }
 
-/** The shots of the chosen season (or all), as a map, or a notice when there are too many marks. */
+/** The shots of the chosen season (or all), as a map: marks, a canvas of them, or squares. */
 function ShotsSection({ player, view }: { player: Player; view: PlayerView }) {
   const [shots, setShots] = useState<Exclude<Load<PlayerShots>, { status: 'missing' }>>({
     status: 'loading',
@@ -297,7 +326,7 @@ function ShotsSection({ player, view }: { player: Player; view: PlayerView }) {
     loadPlayerShots(
       player,
       { competition: view.competition, season: view.season },
-      MARK_LIMIT,
+      SHOTS_MAX,
       ask.signal,
     ).then(
       (data) => {
@@ -339,13 +368,12 @@ function ShotsSection({ player, view }: { player: Player; view: PlayerView }) {
         <p class="status label player-wait" role="status">
           Loading the shots
         </p>
-      ) : shots.data.truncated ? (
-        <TooMany player={player} view={view} />
       ) : (
         <PlayerMap
           player={player}
           view={view}
           shots={shots.data.shots}
+          truncated={shots.data.truncated}
           heading={heading}
           loading={loading}
         />
@@ -354,57 +382,52 @@ function ShotsSection({ player, view }: { player: Player; view: PlayerView }) {
   );
 }
 
-/** More marks than the SVG layer is for: say so, and offer the seasons that are small enough. */
-function TooMany({ player, view }: { player: Player; view: PlayerView }) {
-  const options = narrowTo(player).filter(
-    (r) => r !== selectedSeason(player.seasons, view),
-  );
-  return (
-    <div class="state player-many" role="status">
-      <h3 class="state-title">Too many shots to draw as marks</h3>
-      <p>
-        There are <span class="num">{shotsIn(player, view)}</span> shots here and the map
-        draws up to <span class="num">{MARK_LIMIT}</span>. A denser view is a later step.
-      </p>
-      {options.length ? (
-        <>
-          <p>Narrow it to one season:</p>
-          <ul class="player-narrow">
-            {options.map((r) => (
-              <li key={`${r.competition.id}:${r.season.id}`}>
-                <a
-                  href={playerUrl(player.id, view, {
-                    competition: r.competition.id,
-                    season: r.season.id,
-                  })}
-                  onClick={onPlainClick(() =>
-                    change(player.id, view, {
-                      competition: r.competition.id,
-                      season: r.season.id,
-                    }),
-                  )}
-                >
-                  {selectionName(r)}, <span class="num">{r.shots}</span> shots
-                </a>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p>No single season of theirs is small enough to draw either.</p>
-      )}
-    </div>
-  );
+/** The squares of the density view for what the legend leaves showing, counted by the database. */
+function useDensity(
+  player: Player,
+  view: PlayerView,
+  shown: readonly Outcome[],
+  on: boolean,
+): { data: Density | null; status: 'idle' | 'loading' | 'ready' | 'error' } {
+  const [state, setState] = useState<{
+    data: Density | null;
+    status: 'idle' | 'loading' | 'ready' | 'error';
+  }>({ data: null, status: 'idle' });
+  const outcomes = shown.join();
+  useEffect(() => {
+    if (!on || outcomes === '') return;
+    const ask = new AbortController();
+    // The squares on screen stay up, dimmed, until the next ones arrive.
+    setState((was) => ({ data: was.data, status: 'loading' }));
+    loadPlayerDensity(
+      player,
+      { competition: view.competition, season: view.season },
+      shown.length === OUTCOMES.length ? null : shown,
+      ask.signal,
+    ).then(
+      (data) => setState({ data, status: 'ready' }),
+      () => {
+        if (!ask.signal.aborted) setState((was) => ({ data: was.data, status: 'error' }));
+      },
+    );
+    return () => ask.abort();
+    // `shown` is read through its text, so a new array of the same outcomes asks for nothing.
+  }, [on, player, view.competition, view.season, outcomes]);
+  return state;
 }
+
+const BIN_STEP = DENSITY_STEP;
 
 function PlayerMap(props: {
   player: Player;
   view: PlayerView;
   shots: readonly Shot[];
+  /** There were more shots than the page asks for: only the squares can count them all. */
+  truncated: boolean;
   heading: string;
   loading: boolean;
 }) {
-  const { player, view, shots, heading, loading } = props;
+  const { player, view, shots, truncated, heading, loading } = props;
   // The match plots in by minute so it reads as events in sequence; a career has no sequence, and
   // a couple of hundred marks animating on the main thread (SVG children are not composited) cost
   // far more than the effect is worth. So no intro here: the marks are simply there.
@@ -418,6 +441,10 @@ function PlayerMap(props: {
   );
   const drawable = useMemo(() => shots.filter((s) => s.x >= HALFWAY), [shots]);
   const counts = useMemo(() => tally(drawable), [drawable]);
+  // Which layer draws them follows the selection, never the legend: hiding an outcome must not
+  // swap the SVG for a canvas under the reader's finger.
+  const renderer = rendererFor(drawable.length);
+  const mode: MapMode = truncated ? 'density' : view.mode;
   // Made once, then filtered: hiding an outcome removes its marks and leaves the others be, so the
   // layer does not draw them again.
   const marks: Placed[] = useMemo(
@@ -450,18 +477,50 @@ function PlayerMap(props: {
   const anchor = open ? frame.place(open.x, open.y) : null;
   const behind = shots.length - drawable.length;
 
+  // The density view: squares counted by the database, for the outcomes the legend leaves on.
+  const shown = useMemo(() => OUTCOMES.filter((o) => !hidden.has(o)), [hidden]);
+  const density = useDensity(player, view, shown, mode === 'density');
+  const bins = useMemo(
+    () => (density.data && shown.length > 0 ? binsOf(density.data) : []),
+    [density.data, shown.length],
+  );
+  const drawBins = useMemo(() => drawableBins(bins, BIN_STEP, HALFWAY), [bins]);
+  const binShots = useMemo(() => drawBins.reduce((n, b) => n + b.n, 0), [drawBins]);
+  const binsBehind = useMemo(
+    () => bins.reduce((n, b) => n + b.n, 0) - binShots,
+    [bins, binShots],
+  );
+  const max = useMemo(() => busiest(drawBins), [drawBins]);
+  const openBin = view.bin
+    ? drawBins.find((b) => b.key === binKey(view.bin?.gx ?? 0, view.bin?.gy ?? 0))
+    : undefined;
+  const binAnchor = openBin
+    ? frame.place(
+        cellOf(openBin, BIN_STEP).x + cellOf(openBin, BIN_STEP).w / 2,
+        cellOf(openBin, BIN_STEP).y + cellOf(openBin, BIN_STEP).h / 2,
+      )
+    : null;
+
   const select = useMemo(
     () => (shot: number | null) => change(player.id, view, { shot }),
     [player.id, view],
   );
+  const selectBin = useMemo(
+    () => (key: number | null) =>
+      change(player.id, view, {
+        bin: key === null ? null : { gx: Math.floor(key / 1024), gy: key % 1024 },
+      }),
+    [player.id, view],
+  );
+  const somethingOpen = view.shot !== null || view.bin !== null;
   useEffect(() => {
-    if (view.shot === null) return;
+    if (!somethingOpen) return;
     const close = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') change(player.id, view, { shot: null });
+      if (e.key === 'Escape') change(player.id, view, { shot: null, bin: null });
     };
     document.addEventListener('keydown', close);
     return () => document.removeEventListener('keydown', close);
-  }, [player.id, view]);
+  }, [player.id, view, somethingOpen]);
 
   // Which match the selected shot is from: a name, once the match has loaded.
   const matchId = open?.shot.matchId ?? null;
@@ -481,8 +540,96 @@ function PlayerMap(props: {
         : [...view.hide, outcome],
     });
 
+  const summary =
+    mode === 'density'
+      ? `${describeDensity(drawBins, BIN_STEP)} ${KEYS_HINT}`
+      : renderer === 'canvas'
+        ? describeShots(
+            placed.length,
+            placed.filter((p) => p.outcome === 'goal').length,
+            marks.length - placed.length,
+          )
+        : '';
+
+  let layer: ComponentChildren;
+  if (mode === 'density') {
+    layer = (
+      <DensityLayer
+        frame={frame}
+        bins={drawBins}
+        step={BIN_STEP}
+        selectedKey={openBin?.key ?? null}
+        label={`${player.name}'s shots, square by square`}
+        describedBy="map-summary"
+        announce={openBin ? binAnnouncement(openBin, BIN_STEP, binShots) : ''}
+        onSelect={selectBin}
+      />
+    );
+  } else if (renderer === 'canvas') {
+    layer = (
+      <ShotCanvas
+        frame={frame}
+        shots={placed}
+        all={marks}
+        selectedId={selected?.id ?? null}
+        intro={false}
+        label={`${player.name}'s shots`}
+        describedBy="map-summary"
+        announce={open ? shotAnnouncement(open.shot) : ''}
+        onSelect={select}
+      />
+    );
+  }
+
+  const counting =
+    mode === 'density' && density.data === null && density.status !== 'error';
+  const empty =
+    mode === 'density' ? (
+      counting ? (
+        <p class="player-empty">Counting the shots</p>
+      ) : density.status === 'error' && density.data === null ? (
+        <p class="player-empty">The squares did not load.</p>
+      ) : drawBins.length === 0 ? (
+        <p class="player-empty">
+          {shown.length === 0
+            ? 'Every shot here is hidden by the legend below.'
+            : 'No shots here.'}
+        </p>
+      ) : null
+    ) : placed.length === 0 ? (
+      <p class="player-empty">
+        {shots.length === 0
+          ? 'No shots here.'
+          : 'Every shot here is hidden by the legend below.'}
+      </p>
+    ) : null;
+
   return (
-    <div class="player-panel" data-loading={loading}>
+    <div
+      class="player-panel"
+      data-loading={loading || (mode === 'density' && density.status === 'loading')}
+    >
+      {truncated ? (
+        <p class="map-note player-many" role="status">
+          There are more than <span class="num">{SHOTS_MAX.toLocaleString('en-GB')}</span>{' '}
+          shots here, more than the page draws one by one, so the map counts them in
+          squares. The figures above are for the first {SHOTS_MAX.toLocaleString('en-GB')}
+          .
+        </p>
+      ) : (
+        <div class="seg player-view" role="group" aria-label="Map view" data-count="2">
+          {(['shots', 'density'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => change(player.id, view, { mode: m })}
+            >
+              <span class="seg-label">{m === 'shots' ? 'Shots' : 'Density'}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <ShotPanel
         name={heading}
         stats={shots}
@@ -492,24 +639,41 @@ function PlayerMap(props: {
         shots={placed}
         selectedId={selected?.id ?? null}
         onSelect={select}
-        title={`Shot map of ${player.name}, ${heading}: the last ${PITCH.length - from} yards before goal.`}
+        layer={layer}
+        layerName={mode === 'density' ? 'density' : renderer}
+        underlay={
+          mode === 'density' ? (
+            <DensityCells bins={drawBins} step={BIN_STEP} max={max} />
+          ) : undefined
+        }
+        title={
+          mode === 'density'
+            ? `Map of ${player.name}, ${heading}: how many shots were taken from each ${BIN_STEP}-yard square of the last ${PITCH.length - from} yards before goal.`
+            : `Shot map of ${player.name}, ${heading}: the last ${PITCH.length - from} yards before goal.`
+        }
         label={`${player.name}'s shots. Use the arrow keys to move between them, Enter to open one.`}
         stageRef={stageRef}
         mapRef={mapRef}
-        empty={
-          placed.length === 0 ? (
-            <p class="player-empty">
-              {shots.length === 0
-                ? 'No shots here.'
-                : 'Every shot here is hidden by the legend below.'}
-            </p>
-          ) : null
-        }
+        empty={empty}
         card={
-          open && anchor ? (
+          mode === 'density' ? (
+            openBin && binAnchor ? (
+              <BinCard
+                bin={openBin}
+                step={BIN_STEP}
+                total={binShots}
+                anchor={{
+                  x: ((binAnchor.x - frame.x) / frame.w) * 100,
+                  y: ((binAnchor.y - frame.y) / frame.h) * 100,
+                }}
+                onClose={() => change(player.id, view, { bin: null })}
+              />
+            ) : null
+          ) : open && anchor ? (
             <DetailCard
               shot={open.shot}
               team={player.teams.find((t) => t.id === open.shot.teamId)?.name ?? ''}
+              quiet={renderer === 'canvas'}
               anchor={{
                 x: ((anchor.x - frame.x) / frame.w) * 100,
                 y: ((anchor.y - frame.y) / frame.h) * 100,
@@ -530,11 +694,28 @@ function PlayerMap(props: {
           ) : null
         }
       />
-      <OutcomeFilter counts={counts} hidden={hidden} onToggle={toggle} />
-      {behind > 0 ? (
+      {mode === 'density' && max > 0 ? <DensityLegend max={max} step={BIN_STEP} /> : null}
+      <OutcomeFilter
+        counts={counts}
+        hidden={hidden}
+        onToggle={toggle}
+        note={
+          mode === 'density'
+            ? 'Each square is shaded by how many of the chosen shots started in it. The scale is yards from the goal line.'
+            : undefined
+        }
+      />
+      {summary ? (
+        <p id="map-summary" class="map-note player-summary">
+          {summary}
+        </p>
+      ) : null}
+      {(mode === 'density' ? binsBehind : behind) > 0 ? (
         <p class="map-note">
-          {behind} long {behind === 1 ? 'shot' : 'shots'} from behind the halfway line{' '}
-          {behind === 1 ? 'is' : 'are'} not drawn.
+          {mode === 'density' ? binsBehind : behind} long{' '}
+          {(mode === 'density' ? binsBehind : behind) === 1 ? 'shot' : 'shots'} from
+          behind the halfway line{' '}
+          {(mode === 'density' ? binsBehind : behind) === 1 ? 'is' : 'are'} not drawn.
         </p>
       ) : null}
     </div>

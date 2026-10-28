@@ -9,6 +9,8 @@ interface OutcomeFilterProps {
   /** Outcomes currently hidden. */
   hidden: ReadonlySet<Outcome>;
   onToggle: (outcome: Outcome) => void;
+  /** What the note under the chips says, when the map is not a map of marks. */
+  note?: string | undefined;
 }
 
 /** The legend, and the filter: each outcome is a toggle showing its own mark and a count. */
@@ -16,6 +18,7 @@ export const OutcomeFilter = memo(function OutcomeFilter({
   counts,
   hidden,
   onToggle,
+  note,
 }: OutcomeFilterProps) {
   return (
     <div class="legend">
@@ -43,7 +46,8 @@ export const OutcomeFilter = memo(function OutcomeFilter({
         ))}
       </div>
       <p class="legend-note">
-        Mark size shows expected goals (xG). The scale is yards from the goal line.
+        {note ??
+          'Mark size shows expected goals (xG). The scale is yards from the goal line.'}
       </p>
     </div>
   );

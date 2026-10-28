@@ -77,6 +77,36 @@ describe.skipIf(!API_URL)(`the player page's data (${API_URL ?? 'no API_URL'})`,
     expect(few.shots).toHaveLength(50);
   });
 
+  it('counts the shots into squares that add up to them, through the code the page runs', async () => {
+    const messi = await players.loadPlayer(MESSI);
+    const total = (d: { n: number[] }) => d.n.reduce((a, b) => a + b, 0);
+    const career = await players.loadPlayerDensity(
+      messi,
+      { competition: null, season: null },
+      null,
+    );
+    // Open play, as the page asks: the profile's own count of them.
+    expect(career.step).toBe(2);
+    expect(total(career)).toBe(messi.totals.shots);
+    expect(career.goals.reduce((a, b) => a + b, 0)).toBe(messi.totals.goals);
+    // A season is a part of it, and a legend that hides outcomes asks for the rest.
+    const cup = messi.seasons.find((s) => s.competition.id === 43 && s.season.id === 106);
+    const one = await players.loadPlayerDensity(
+      messi,
+      { competition: 43, season: 106 },
+      null,
+    );
+    expect(total(one)).toBe(cup?.shots);
+    const goals = await players.loadPlayerDensity(
+      messi,
+      { competition: null, season: null },
+      ['goal'],
+    );
+    expect(total(goals)).toBe(messi.totals.goals);
+    // Far fewer squares than shots: that is what it is for.
+    expect(career.n.length).toBeLessThan(messi.totals.shots / 4);
+  });
+
   it('can name the match a shot is from', async () => {
     const messi = await players.loadPlayer(MESSI);
     const [first] = (

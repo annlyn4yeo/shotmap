@@ -1,0 +1,107 @@
+/*
+ * The density view (DESIGN.md section 9): squares in six tints of one ink, under the pitch's
+ * lines, a ring round the one in focus, and a key. Colours are the --density-* tokens, which
+ * `pnpm contrast` checks; nothing here is a gradient, a blur or an image.
+ */
+.density .bin {
+  /* A hairline of pitch between neighbours. */
+  stroke: var(--paper-2);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.bin--1 {
+  fill: var(--density-1);
+}
+.bin--2 {
+  fill: var(--density-2);
+}
+.bin--3 {
+  fill: var(--density-3);
+}
+.bin--4 {
+  fill: var(--density-4);
+}
+.bin--5 {
+  fill: var(--density-5);
+}
+.bin--6 {
+  fill: var(--density-6);
+}
+
+.density-layer[data-focus='true'] {
+  cursor: pointer;
+}
+
+/* Paper underneath, so the colour on top is seen on any tint. */
+.bin-ring {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.bin-ring[data-tone='under'] {
+  stroke: var(--paper);
+  stroke-width: 4.5px;
+}
+.bin-ring[data-tone='over'] {
+  stroke-width: 2px;
+}
+.bin-ring[data-kind='active'] {
+  stroke: var(--focus);
+}
+.bin-ring[data-kind='selected'] {
+  stroke: var(--ink);
+}
+
+/* The key: a swatch and the counts it stands for, in a row. */
+.density-key {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.density-key-title {
+  margin: 0;
+}
+
+.density-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--step--1);
+}
+
+.density-ranges li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.5rem;
+}
+
+.density-swatch {
+  flex: none;
+  width: 1.5rem;
+  height: 1rem;
+  background: var(--density-1);
+}
+.density-swatch[data-class='2'] {
+  background: var(--density-2);
+}
+.density-swatch[data-class='3'] {
+  background: var(--density-3);
+}
+.density-swatch[data-class='4'] {
+  background: var(--density-4);
+}
+.density-swatch[data-class='5'] {
+  background: var(--density-5);
+}
+.density-swatch[data-class='6'] {
+  background: var(--density-6);
+}

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'preact/hooks';
 import type { Outcome } from '@shotmap/schema';
 import { drawOrder } from '../lib/geometry';
+import { HIT_PX } from '../lib/hit';
 import { markPath } from '../lib/marks';
 import { memo } from '../lib/memo';
 import type { Frame } from './frame';
@@ -29,13 +30,13 @@ export interface MapShot {
 }
 
 /**
- * The renderer contract. Everything a shot layer needs is in these props, and
- * it reports back only a selection (hover, focus and the tab stop are its own), so a canvas renderer can replace
- * this SVG one for an aggregate view of thousands of shots without changing them:
- * it would draw `shots` into a <canvas>, hit-test with the same nearest-point
- * rule, and keep the roving-focus and arrow-key behaviour on a wrapper element.
- * This version is SVG because one match is about thirty shots: one <path> each,
- * no wrappers, no filters.
+ * The renderer contract. Everything a shot layer needs is in these props, and it reports back only
+ * a selection (hover, focus and the tab stop are its own), so one layer can replace another
+ * without the page changing: `ShotCanvas` takes the same props and paints the same marks into a
+ * <canvas> above ~300 of them, with the same nearest-mark rule and the roving focus and arrow keys
+ * kept on a list of buttons beside it. This version is SVG because up to a few hundred marks the
+ * DOM is cheap and gives hit-testing, focus rings and zoom for free: one <path> each, no
+ * wrappers, no filters.
  */
 export interface ShotLayerProps {
   frame: Frame;
@@ -48,8 +49,59 @@ export interface ShotLayerProps {
   onSelect: (id: number | null) => void;
 }
 
-/** A tap or click counts if it lands within this many CSS pixels of a mark's centre. */
-const HIT_PX = 24;
+/**
+ * The shot's flight, from where it was taken to where it ended: a dashed line and a dot. Drawn
+ * under the marks in the SVG layer and over the canvas in the canvas layer.
+ */
+export function Trajectory({ active }: { active: MapShot }) {
+  return (
+    <>
+      <path class="traj" d={`M${active.x} ${active.y}L${active.ex} ${active.ey}`} />
+      <circle class="traj-end" cx={active.ex} cy={active.ey} r={0.45} />
+    </>
+  );
+}
+
+/**
+ * What marks the shot in focus and the one selected, drawn once above everything else: the active
+ * mark again (the real one stays among the dimmed rest), and a ring round each. The same markup
+ * in both layers, so they cannot look different.
+ */
+export function Emphasis(props: {
+  active: MapShot | undefined;
+  selected: MapShot | undefined;
+}) {
+  const { active, selected } = props;
+  return (
+    <>
+      {active ? (
+        <path
+          class={`shot shot--${active.outcome}`}
+          d={markPath(active.outcome, active.x, active.y, active.r)}
+          aria-hidden="true"
+        />
+      ) : null}
+      {selected ? (
+        <circle
+          class="ring"
+          data-kind="selected"
+          cx={selected.x}
+          cy={selected.y}
+          r={selected.r + 1.7}
+        />
+      ) : null}
+      {active ? (
+        <circle
+          class="ring"
+          data-kind="active"
+          cx={active.x}
+          cy={active.y}
+          r={active.r + (active === selected ? 3.2 : 1.7)}
+        />
+      ) : null}
+    </>
+  );
+}
 
 interface MarkProps {
   s: MapShot;
@@ -185,12 +237,7 @@ export function ShotLayer(props: ShotLayerProps) {
       onFocusOut={() => setFocusId(null)}
     >
       <g ref={group} transform={frame.transform}>
-        {active ? (
-          <>
-            <path class="traj" d={`M${active.x} ${active.y}L${active.ex} ${active.ey}`} />
-            <circle class="traj-end" cx={active.ex} cy={active.ey} r={0.45} />
-          </>
-        ) : null}
+        {active ? <Trajectory active={active} /> : null}
 
         {intro
           ? goals.map((s) => (
@@ -212,33 +259,7 @@ export function ShotLayer(props: ShotLayerProps) {
             <Mark key={s.id} s={s} tab={s.id === roving} pressed={s.id === selectedId} />
           ))}
         </g>
-        {/* The active mark again, above the dimmed ones; the real one stays in the group. */}
-        {active ? (
-          <path
-            class={`shot shot--${active.outcome}`}
-            d={markPath(active.outcome, active.x, active.y, active.r)}
-            aria-hidden="true"
-          />
-        ) : null}
-
-        {selected ? (
-          <circle
-            class="ring"
-            data-kind="selected"
-            cx={selected.x}
-            cy={selected.y}
-            r={selected.r + 1.7}
-          />
-        ) : null}
-        {active ? (
-          <circle
-            class="ring"
-            data-kind="active"
-            cx={active.x}
-            cy={active.y}
-            r={active.r + (active === selected ? 3.2 : 1.7)}
-          />
-        ) : null}
+        <Emphasis active={active} selected={selected} />
       </g>
     </svg>
   );

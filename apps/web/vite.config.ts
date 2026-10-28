@@ -115,7 +115,11 @@ const api = {
   '/v1': { target: process.env.API_URL ?? 'http://127.0.0.1:8787', changeOrigin: true },
 };
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // The /dev/stress page (thousands of synthetic shots, measured by `pnpm fps`) is in a dev server
+  // and in a build made with VITE_STRESS=1, and nowhere else. A constant, not a variable: where it
+  // is false the page's route and its file are not built at all.
+  define: { __STRESS__: String(command === 'serve' || process.env.VITE_STRESS === '1') },
   plugins: [preact(), preloadCriticalFont(), inlineHeroData(), emitNotFoundPage()],
   server: { proxy: api },
   preview: { proxy: api },
@@ -128,4 +132,4 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     environment: 'node',
   },
-});
+}));
