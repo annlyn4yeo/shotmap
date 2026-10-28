@@ -445,7 +445,7 @@ export const ROUTES: readonly Route[] = [
     id: 'getPlayerDensity',
     path: '/v1/players/{id}/density',
     summary: "A player's shots counted into square bins",
-    status: 'planned',
+    status: 'live',
     params: idParam,
     query: withPin({
       step: qint
@@ -454,6 +454,8 @@ export const ROUTES: readonly Route[] = [
       ...filters,
     }),
     response: envelope(DensitySchema),
+    notes:
+      'Counted by the database, so a career of thousands of shots is a few hundred bins. Bin `gx, gy` holds the shots that started in `[gx * step, (gx + 1) * step)` yards along x and `[gy * step, (gy + 1) * step)` along y, every team attacking toward x = 120. Sparse: only bins with a shot appear, ordered by `gx` then `gy`. `n` is shots, `xg` their expected goals and `goals` how many scored. The filters are those of the shots, and `season` needs `competition`. Open play and the shootout are both counted unless `period` says otherwise.',
   },
   {
     id: 'compare',

@@ -323,11 +323,12 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
       ).toBe(shots.n);
       expect(d.gx.every((g) => g >= 0 && g * step <= 121)).toBe(true);
     }
-    const d = await exportDensity(db, MESSI, 2, { period: 'open' });
+    const d = DensitySchema.parse(await exportDensity(db, MESSI, 2, { period: 'open' }));
     expect(d.goals.reduce((a, b) => a + b, 0)).toBe(totals.goals);
     expect(d.xg.reduce((a, b) => a + b, 0)).toBeCloseTo(totals.xg, 2);
     await expect(exportDensity(db, MESSI, 3)).rejects.toThrow(RangeError);
-    expect((await exportDensity(db, 1)).n).toEqual([]);
+    // No such player is not "no shots": the same answer the shots give.
+    expect(await exportDensity(db, 1)).toBeUndefined();
   });
 
   it('compares two players', async () => {

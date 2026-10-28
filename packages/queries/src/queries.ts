@@ -382,24 +382,35 @@ export async function exportPlayerShots(
   return { ...columns, truncated } as PlayerShots;
 }
 
-/** A player's shots counted into `step`-yard squares. Sparse. */
+/**
+ * A player's shots counted into `step`-yard squares: a database does the counting, so a career of
+ * thousands of shots is a few hundred cells. Sparse (only squares with a shot appear), ordered by
+ * gx then gy. The bins are `floor(coordinate / step)` of the shot's start, which is the same for
+ * every team because ingest turns each of them to attack toward x = 120. Undefined for a player
+ * who does not exist, as for their shots.
+ */
 export async function exportDensity(
   db: Db,
   playerId: number,
   step = 2,
   f: ShotFilters = {},
-): Promise<Density> {
+): Promise<Density | undefined> {
   if (!(LIMITS.densitySteps as readonly number[]).includes(step))
     throw new RangeError(`step must be one of ${LIMITS.densitySteps.join(', ')}`);
   const { where, params } = filterSql(f);
-  const found = await db.all(
-    `SELECT CAST(s.x / ? AS INTEGER) AS gx, CAST(s.y / ? AS INTEGER) AS gy, COUNT(*) AS n,
-            SUM(s.xg) AS xg, SUM(s.outcome_group = 0) AS goals
-     FROM shots s JOIN matches m ON m.id = s.match_id
-     WHERE s.player_id = ?${where}
-     GROUP BY gx, gy ORDER BY gx, gy`,
-    [step, step, playerId, ...params],
-  );
+  // As for the shots: the match is only looked up when the filter names a competition or season.
+  const needsMatch = f.competition !== undefined || f.season !== undefined;
+  const [who = [], found = []] = await db.batch([
+    { sql: 'SELECT 1 AS found FROM players WHERE id = ?', params: [playerId] },
+    {
+      sql: `SELECT CAST(s.x / ? AS INTEGER) AS gx, CAST(s.y / ? AS INTEGER) AS gy, COUNT(*) AS n,
+                   SUM(s.xg) AS xg, SUM(s.outcome_group = 0) AS goals
+            FROM shots s ${needsMatch ? 'JOIN matches m ON m.id = s.match_id ' : ''}WHERE s.player_id = ?${where}
+            GROUP BY gx, gy ORDER BY gx, gy`,
+      params: [step, step, playerId, ...params],
+    },
+  ]);
+  if (who.length === 0) return undefined;
   return {
     step,
     gx: found.map((r) => num(r.gx)),

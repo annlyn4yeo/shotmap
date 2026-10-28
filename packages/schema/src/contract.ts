@@ -81,6 +81,7 @@ export const QUERY_ALLOW = {
   getMatchShots: ['v'],
   getPlayer: ['v'],
   getPlayerShots: ['competition', 'season', 'period', 'outcome', 'type', 'limit', 'v'],
+  getPlayerDensity: ['step', 'competition', 'season', 'period', 'outcome', 'type', 'v'],
   search: ['q', 'limit', 'v'],
 } as const;
 

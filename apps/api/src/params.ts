@@ -79,14 +79,10 @@ function list<T extends string | number>(
 }
 
 /**
- * /v1/players/:id/shots: the filters, and how many rows to give at most. `season` means nothing
- * without its competition (season ids are only unique within one), so it is refused alone.
+ * The filters a player's shots and their density share. `season` means nothing without its
+ * competition (season ids are only unique within one), so it is refused alone.
  */
-export function playerShotsQuery(pairs: readonly [string, string][]): {
-  filters: ShotFilters;
-  limit: number;
-} {
-  const params = new Map(pairs);
+function shotFilters(params: Map<string, string>): ShotFilters {
   const filters: ShotFilters = {};
   const competition = int(params, 'competition');
   const season = int(params, 'season');
@@ -118,12 +114,42 @@ export function playerShotsQuery(pairs: readonly [string, string][]): {
       (item) => (INT.test(item) ? Number(item) : undefined),
       'type',
     );
+  return filters;
+}
+
+/** /v1/players/:id/shots: the filters, and how many rows to give at most. */
+export function playerShotsQuery(pairs: readonly [string, string][]): {
+  filters: ShotFilters;
+  limit: number;
+} {
+  const params = new Map(pairs);
+  const filters = shotFilters(params);
   const limit = int(params, 'limit');
   if (limit !== undefined && limit < 1) throw new BadRequest('limit must be at least 1');
   return {
     filters,
     limit: Math.min(limit ?? LIMITS.playerShotsDefault, LIMITS.playerShotsMax),
   };
+}
+
+/** The bin sizes density may be asked for, and the one it uses when not asked. */
+export const DENSITY_STEP_DEFAULT = 2;
+
+/**
+ * /v1/players/:id/density: the same filters, and the size of a bin. Only the sizes the contract
+ * lists are allowed, so there are at most five answers per question and none can be asked for
+ * to make the database count a million tiny squares.
+ */
+export function playerDensityQuery(pairs: readonly [string, string][]): {
+  filters: ShotFilters;
+  step: number;
+} {
+  const params = new Map(pairs);
+  const filters = shotFilters(params);
+  const step = int(params, 'step') ?? DENSITY_STEP_DEFAULT;
+  if (!(LIMITS.densitySteps as readonly number[]).includes(step))
+    throw new BadRequest(`step must be one of ${LIMITS.densitySteps.join(', ')}`);
+  return { filters, step };
 }
 
 /** /v1/search: the words typed are required, and the number of results per kind is capped. */

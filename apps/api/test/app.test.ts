@@ -8,6 +8,7 @@ import {
   decodeShotsStrict,
 } from '@shotmap/schema';
 import {
+  DensitySchema,
   ErrorSchema,
   MatchDetailSchema,
   MatchListSchema,
@@ -107,8 +108,12 @@ describe.skipIf(!haveDb)('the Worker', () => {
       expect(shim.statements.length).toBeLessThanOrEqual(5);
     });
 
-    it('says there is no such player, for the profile and for the shots', async () => {
-      for (const path of ['/v1/players/1', '/v1/players/1/shots']) {
+    it('says there is no such player, for the profile, the shots and the density', async () => {
+      for (const path of [
+        '/v1/players/1',
+        '/v1/players/1/shots',
+        '/v1/players/1/density',
+      ]) {
         const res = await get(path);
         expect(res.status, path).toBe(404);
         const { error } = ErrorSchema.parse(await res.json());
@@ -179,11 +184,131 @@ describe.skipIf(!haveDb)('the Worker', () => {
     });
 
     it('is immutable for the current release, and gone for another', async () => {
-      for (const path of [`/v1/players/${MESSI}`, `/v1/players/${MESSI}/shots`]) {
+      for (const path of [
+        `/v1/players/${MESSI}`,
+        `/v1/players/${MESSI}/shots`,
+        `/v1/players/${MESSI}/density`,
+      ]) {
         const pinned = await get(`${path}?v=${release}`);
         expect(pinned.headers.get('cache-control'), path).toBe(CACHE_CONTROL.pinned);
         expect((await get(`${path}?v=r000000000000`)).status).toBe(410);
       }
+    });
+
+    describe('/density', () => {
+      const density = async (query = '', id = MESSI) => {
+        const res = await get(`/v1/players/${id}/density${query ? `?${query}` : ''}`);
+        expect(res.status, query).toBe(200);
+        return envelope(DensitySchema).parse(await res.json()).data;
+      };
+      const total = (column: readonly number[]) => column.reduce((a, b) => a + b, 0);
+
+      it('counts every shot once at every size, in sparse columns ordered by cell', async () => {
+        const open = await shots('period=open');
+        for (const step of LIMITS.densitySteps) {
+          const d = await density(`step=${step}&period=open`);
+          expect(d.step).toBe(step);
+          expect(total(d.n), `step ${step}`).toBe(open.n);
+          expect(d.n.every((n) => n >= 1)).toBe(true);
+          const cells = d.gx.map((gx, i) => gx * 1000 + (d.gy[i] ?? 0));
+          expect(cells, 'ordered by gx then gy, none twice').toEqual(
+            [...new Set(cells)].sort((a, b) => a - b),
+          );
+        }
+        // A bigger bin can only merge cells.
+        const fine = await density('step=1&period=open');
+        const coarse = await density('step=10&period=open');
+        expect(coarse.n.length).toBeLessThan(fine.n.length);
+      });
+
+      it('is two yards wide unless asked, and agrees with the profile on goals and xG', async () => {
+        const d = await density('period=open');
+        expect(d.step).toBe(2);
+        const messi = await profile();
+        expect(total(d.goals)).toBe(messi.totals.goals);
+        expect(total(d.xg)).toBeCloseTo(messi.totals.xg, 2);
+        // Every shot in a cell started in it, whichever team it was for.
+        const open = await shots('period=open');
+        const inCell = new Map<string, number>();
+        for (let i = 0; i < open.n; i++) {
+          const key = `${Math.trunc((open.cols.x[i] ?? 0) / 2)},${Math.trunc((open.cols.y[i] ?? 0) / 2)}`;
+          inCell.set(key, (inCell.get(key) ?? 0) + 1);
+        }
+        expect(d.gx.map((gx, i) => [`${gx},${d.gy[i]}`, d.n[i]])).toEqual(
+          [...inCell].sort(([a], [b]) => {
+            const [ax = 0, ay = 0] = a.split(',').map(Number);
+            const [bx = 0, by = 0] = b.split(',').map(Number);
+            return ax - bx || ay - by;
+          }),
+        );
+      });
+
+      it('takes the filters of the shots', async () => {
+        const messi = await profile();
+        const cup = messi.seasons.find((s) => s.competition.id === 43);
+        const one = await density(`competition=43&season=${cup?.season.id}&period=open`);
+        expect(total(one.n)).toBe(cup?.shots);
+        expect(total((await density('period=open&outcome=goal')).n)).toBe(
+          messi.totals.goals,
+        );
+        const penalties = await density('type=88');
+        expect(total(penalties.n)).toBe((await shots('type=88')).n);
+        // Every filter at once is still one question.
+        expect(
+          total(
+            (
+              await density(
+                `step=4&competition=43&season=${cup?.season.id}&outcome=goal,saved`,
+              )
+            ).n,
+          ),
+        ).toBeGreaterThan(0);
+      });
+
+      it('has no cells for a filter that matches nothing, which is not an error', async () => {
+        const d = await density('period=shootout&outcome=post');
+        expect(d.n).toEqual([]);
+        expect(d.gx).toEqual([]);
+      });
+
+      it('refuses a size that is not on the list, and what it does not understand', async () => {
+        for (const query of [
+          'step=3',
+          'step=0',
+          'step=-2',
+          'step=2.5',
+          'step=x',
+          'step=',
+          'step=1000',
+          'step=2&step=4',
+          'season=106',
+          'period=sideways',
+          'outcome=nonsense',
+          'type=999',
+          'limit=10',
+          'junk=1',
+        ]) {
+          const res = await get(`/v1/players/${MESSI}/density?${query}`);
+          expect(res.status, query).toBe(400);
+          expect(ErrorSchema.parse(await res.json()).error.code).toBe('bad_request');
+        }
+        expect((await get('/v1/players/abc/density')).status).toBe(400);
+      });
+
+      it('is one counting statement, binds its sizes, and joins matches only when asked to', async () => {
+        shim.reset();
+        await density('step=4');
+        const plain = shim.statements.find((s) => /GROUP BY/.test(s.sql));
+        expect(plain?.sql).toContain('CAST(s.x / ? AS INTEGER)');
+        expect(plain?.sql).not.toMatch(/JOIN matches/);
+        expect(plain?.params.slice(0, 2)).toEqual([4, 4]);
+        expect(shim.statements.length).toBeLessThanOrEqual(2);
+        shim.reset();
+        await density('competition=43&season=106');
+        expect(shim.statements.find((s) => /GROUP BY/.test(s.sql))?.sql).toContain(
+          'JOIN matches m',
+        );
+      });
     });
   });
 
