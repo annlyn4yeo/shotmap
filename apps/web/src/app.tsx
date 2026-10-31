@@ -130,6 +130,9 @@ function OtherPage() {
               <a class="nav-link" href="/matches">
                 All matches
               </a>
+              <a class="nav-link" href="/compare">
+                Compare
+              </a>
             </nav>
             <PickerButton />
           </div>

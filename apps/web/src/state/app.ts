@@ -1,6 +1,7 @@
 import { loadMatch, readMatch } from '../data/load';
 import type { LoadedMatch } from '../data/match';
 import { HERO_MATCH_ID, type Outcome } from '@shotmap/schema';
+import { compareUrl, parseCompareView, type Slot } from '../lib/compare';
 import { createStore } from '../lib/store';
 import {
   DEFAULT_ROUTE,
@@ -27,6 +28,8 @@ export interface AppState {
   route: Route;
   match: MatchState;
   picker: boolean;
+  /** The side of the comparison the search is choosing a player for; null for the ordinary search. */
+  pick: Slot | null;
 }
 
 export const store = createStore<AppState>({
@@ -35,6 +38,7 @@ export const store = createStore<AppState>({
   route: DEFAULT_ROUTE,
   match: { id: 0, status: 'loading', data: null },
   picker: false,
+  pick: null,
 });
 
 /** The match the route points at: its own, or the hero. */
@@ -95,6 +99,7 @@ function syncLocation(focus: boolean): void {
     search,
     route: page.name === 'match' ? parseUrl(pathname, search) : DEFAULT_ROUTE,
     picker: false,
+    pick: null,
   });
   arrived = focus && page.name !== 'match';
   if (page.name === 'match') followRoute();
@@ -150,8 +155,20 @@ export function toggleOutcome(outcome: Outcome): void {
   );
 }
 
-export const openPicker = (): void => store.set({ picker: true });
-export const closePicker = (): void => store.set({ picker: false });
+export const openPicker = (): void => store.set({ picker: true, pick: null });
+export const closePicker = (): void => store.set({ picker: false, pick: null });
+
+/** Open the search to choose the player for one side of the comparison. */
+export const openPlayerPicker = (slot: Slot): void =>
+  store.set({ picker: true, pick: slot });
+
+/**
+ * Put a player on one side of the comparison. A new history entry, so Back takes the choice back;
+ * the page it lands on is the one it was on, so focus stays on the button that opened the search.
+ */
+export function choosePlayer(slot: Slot, id: number): void {
+  navigate(compareUrl(parseCompareView(location.search), { [slot]: id }));
+}
 
 // Start-up
 

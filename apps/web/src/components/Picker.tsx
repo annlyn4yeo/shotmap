@@ -1,10 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { search } from '../data/browse';
-import { announce, flatten, groupsOf, type Option } from '../lib/options';
+import { otherSlot, parseCompareView, playerIn, type Slot } from '../lib/compare';
+import { announce, flatten, groupsOf, playerGroupsOf, type Option } from '../lib/options';
 import { loadRecents, rememberSearch } from '../lib/recents';
 import { createSearcher, type SearchState } from '../lib/searcher';
 import { useStore } from '../lib/store';
-import { closePicker, navigate, openMatch, openPicker, store } from '../state/app';
+import {
+  choosePlayer,
+  closePicker,
+  navigate,
+  openMatch,
+  openPicker,
+  store,
+} from '../state/app';
 import './picker.css';
 
 /** The button in the header that opens the search. */
@@ -23,10 +31,16 @@ export function PickerButton() {
  * The search: a modal dialog (so focus is trapped and Esc closes it for free) with a field and
  * the results of GET /v1/search grouped as players, teams and matches. Focus stays in the field
  * while the arrow keys move through the list, the standard combobox pattern. A full-height
- * sheet on a phone.
+ * sheet on a phone. Asked for a player to compare (`pick`), it lists players only and hands the
+ * one chosen to the compare page instead of going to their own.
  */
 export function Picker() {
   const open = useStore(store, (s) => s.picker);
+  const pick = useStore(store, (s) => s.pick);
+  // The player already on the other side is not offered again.
+  const taken = useStore(store, (s) =>
+    s.pick ? playerIn(parseCompareView(s.search), otherSlot(s.pick)) : null,
+  );
   const dialog = useRef<HTMLDialogElement>(null);
 
   // Opened as soon as it is drawn, not a frame later, so what is typed right after the shortcut
@@ -42,7 +56,7 @@ export function Picker() {
     <dialog
       ref={dialog}
       class="picker"
-      aria-label="Search players, teams and matches"
+      aria-label={pick ? 'Choose a player' : 'Search players, teams and matches'}
       onClose={closePicker}
       onClick={(e) => {
         // A click on the backdrop lands on the dialog itself, outside its box.
@@ -55,12 +69,12 @@ export function Picker() {
         if (outside) closePicker();
       }}
     >
-      {open ? <PickerBody /> : null}
+      {open ? <PickerBody pick={pick} taken={taken} /> : null}
     </dialog>
   );
 }
 
-function PickerBody() {
+function PickerBody({ pick, taken }: { pick: Slot | null; taken: number | null }) {
   const [query, setQuery] = useState('');
   const [state, setState] = useState<SearchState>({ status: 'idle' });
   const [active, setActive] = useState(0);
@@ -75,7 +89,10 @@ function PickerBody() {
   const last = useRef<SearchState>({ status: 'idle' });
   if (state.status === 'ready') last.current = state;
   const shown = state.status === 'loading' ? last.current : state;
-  const groups = useMemo(() => groupsOf(shown, recents), [shown, recents]);
+  const groups = useMemo(
+    () => (pick ? playerGroupsOf(shown, taken) : groupsOf(shown, recents)),
+    [shown, recents, pick, taken],
+  );
   const options = useMemo(() => flatten(groups), [groups]);
   const busy = state.status === 'loading';
 
@@ -95,6 +112,11 @@ function PickerBody() {
     if (!option) return;
     if (option.words !== undefined) {
       type(option.words);
+      return;
+    }
+    if (pick && option.player !== undefined) {
+      closePicker();
+      choosePlayer(pick, option.player);
       return;
     }
     setRecents(rememberSearch(query));
@@ -135,7 +157,7 @@ function PickerBody() {
     <div class="picker-box">
       <header class="picker-head">
         <label class="picker-field">
-          <span class="label">Search</span>
+          <span class="label">{pick ? 'Player' : 'Search'}</span>
           <input
             type="search"
             class="picker-input"
@@ -145,7 +167,7 @@ function PickerBody() {
             spellcheck={false}
             enterkeyhint="go"
             maxLength={64}
-            placeholder="Messi, Argentina, final"
+            placeholder={pick ? 'Messi, Ronaldo, Kane' : 'Messi, Argentina, final'}
             value={query}
             onInput={(e) => type(e.currentTarget.value)}
             onKeyDown={onKeyDown}
@@ -172,13 +194,16 @@ function PickerBody() {
         <div class="picker-empty">
           <p class="picker-empty-title">Nothing for &ldquo;{state.words}&rdquo;</p>
           <p>
-            Try a surname, a team, or a stage such as &ldquo;semi&rdquo;. Words match the
-            start of a word.
+            {pick
+              ? 'Try a surname. Words match the start of a word.'
+              : 'Try a surname, a team, or a stage such as “semi”. Words match the start of a word.'}
           </p>
           <button type="button" class="picker-clear" onClick={() => type('')}>
             Clear the search
           </button>
         </div>
+      ) : pick && state.status === 'idle' ? (
+        <p class="picker-hint">Type the name of a player.</p>
       ) : (
         <ul
           ref={list}
@@ -191,9 +216,14 @@ function PickerBody() {
         >
           {groups.map((group) => (
             <li key={group.key} role="presentation" class="picker-group">
-              <h3 class="picker-group-title label" id={`g-${group.key}`}>
+              {/* Not a heading: a listbox may hold only options and groups, and the group is named by this. */}
+              <div
+                role="presentation"
+                class="picker-group-title label"
+                id={`g-${group.key}`}
+              >
                 {group.title}
-              </h3>
+              </div>
               <ul role="group" aria-labelledby={`g-${group.key}`}>
                 {group.options.map((option) => {
                   position++;

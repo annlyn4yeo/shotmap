@@ -14,6 +14,7 @@ import {
   DensityCells,
   DensityLayer,
   DensityLegend,
+  binAnchor,
   binAnnouncement,
 } from '../components/Density';
 import { DetailCard } from '../components/DetailCard';
@@ -31,19 +32,18 @@ import {
 } from '../data/players';
 import { shotAnnouncement } from '../data/announce';
 import { shotLabel, type Shot } from '../data/shots';
-import { useFooterHidden } from '../lib/busy';
 import {
   DENSITY_STEP,
   binKey,
   binsOf,
   busiest,
-  cellOf,
   describeDensity,
   drawableBins,
 } from '../lib/density';
+import { EMPTY_COMPARE, compareUrl } from '../lib/compare';
 import { tally } from '../lib/derive';
 import { markRadius } from '../lib/geometry';
-import { useAfterPaint } from '../lib/hooks';
+import { useAfterPaint, useFooterHidden } from '../lib/hooks';
 import {
   KEYS_HINT,
   SHOTS_MAX,
@@ -195,6 +195,11 @@ export default function PlayerPage({ page }: { page: Page }) {
               {t.shots === 1 ? 'shot' : 'shots'}
             </span>
           ))}
+        </p>
+        <p class="player-compare">
+          <a href={compareUrl(EMPTY_COMPARE, { a: player.id })}>
+            Compare with another player
+          </a>
         </p>
       </header>
 
@@ -431,7 +436,11 @@ function PlayerMap(props: {
   // The match plots in by minute so it reads as events in sequence; a career has no sequence, and
   // a couple of hundred marks animating on the main thread (SVG children are not composited) cost
   // far more than the effect is worth. So no intro here: the marks are simply there.
-  const { stageRef, mapRef, from, frame, unitPx, intro } = useMapFrame(shots, false);
+  const { stageRef, mapRef, from, frame, unitPx, intro } = useMapFrame(
+    shots,
+    false,
+    false,
+  );
   // Keyed by what is hidden, not by the array (a new one every time the URL changes): selecting a
   // shot must not make a couple of hundred marks again.
   const hideKey = view.hide.join();
@@ -494,12 +503,6 @@ function PlayerMap(props: {
   const openBin = view.bin
     ? drawBins.find((b) => b.key === binKey(view.bin?.gx ?? 0, view.bin?.gy ?? 0))
     : undefined;
-  const binAnchor = openBin
-    ? frame.place(
-        cellOf(openBin, BIN_STEP).x + cellOf(openBin, BIN_STEP).w / 2,
-        cellOf(openBin, BIN_STEP).y + cellOf(openBin, BIN_STEP).h / 2,
-      )
-    : null;
 
   const select = useMemo(
     () => (shot: number | null) => change(player.id, view, { shot }),
@@ -657,15 +660,12 @@ function PlayerMap(props: {
         empty={empty}
         card={
           mode === 'density' ? (
-            openBin && binAnchor ? (
+            openBin ? (
               <BinCard
                 bin={openBin}
                 step={BIN_STEP}
                 total={binShots}
-                anchor={{
-                  x: ((binAnchor.x - frame.x) / frame.w) * 100,
-                  y: ((binAnchor.y - frame.y) / frame.h) * 100,
-                }}
+                anchor={binAnchor(frame, openBin, BIN_STEP)}
                 onClose={() => change(player.id, view, { bin: null })}
               />
             ) : null

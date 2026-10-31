@@ -8,7 +8,7 @@ import {
   parseBrowse,
   type BrowseQuery,
 } from '../lib/browse';
-import { useFooterHidden } from '../lib/busy';
+import { useFooterHidden } from '../lib/hooks';
 import { whole } from '../lib/route';
 import { useStore } from '../lib/store';
 import { useWindow } from '../lib/windowing';

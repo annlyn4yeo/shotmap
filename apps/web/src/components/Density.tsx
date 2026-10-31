@@ -202,6 +202,20 @@ export const DensityLegend = memo(function DensityLegend(props: {
   );
 });
 
+/** Where a square's centre is on the map, as percentages of its width and height: where its card points. */
+export function binAnchor(
+  frame: Frame,
+  bin: Bin,
+  step: number,
+): { x: number; y: number } {
+  const c = cellOf(bin, step);
+  const at = frame.place(c.x + c.w / 2, c.y + c.h / 2);
+  return {
+    x: ((at.x - frame.x) / frame.w) * 100,
+    y: ((at.y - frame.y) / frame.h) * 100,
+  };
+}
+
 /** Title for a square: where it is, with a capital. */
 export const binTitle = (bin: Pick<Bin, 'gx' | 'gy'>, step: number): string => {
   const text = binWhere(bin, step);

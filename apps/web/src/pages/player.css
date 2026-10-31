@@ -1,6 +1,6 @@
 /* The player page: a heading, a table of seasons, and the same shot panel as the match page. */
 
-/* The footer waits for the player (see lib/busy.ts): a thing that comes into being did not move. */
+/* The footer waits for the player (see useFooterHidden in lib/hooks.ts): a thing that comes into being did not move. */
 :root[data-busy] .credit {
   display: none;
 }
@@ -45,6 +45,21 @@
 .player-teams {
   margin-top: var(--space-2);
   font-size: var(--step--1);
+}
+
+/* The way to the comparison, set where the player is named. */
+.player-compare {
+  margin: 0;
+}
+
+.player-compare a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: inherit;
+  font-weight: var(--weight-bold);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .player-section {
@@ -212,4 +227,22 @@
 .player-summary {
   margin-top: var(--space-3);
   text-align: left;
+}
+
+/*
+ * On a wide screen the match page fills the window: its map is sized by the box its panel has (a
+ * container query on both axes). This page scrolls and gives its panel no height, so that box was
+ * none at all and the map had none either, from 52rem up. Here the map is as wide as the page and
+ * no taller than the window, as it is on a phone.
+ */
+@media (min-width: 52rem) {
+  .player-panel .stage {
+    flex: none;
+    container-type: normal;
+  }
+
+  .player-panel .map-frame {
+    width: min(100% - 14px, (100dvh - 7rem) * var(--ratio));
+    margin-inline: auto;
+  }
 }

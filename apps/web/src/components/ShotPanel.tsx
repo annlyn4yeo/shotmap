@@ -9,8 +9,8 @@ import './shotmap.css';
 export interface ShotPanelProps {
   /** The panel's heading: a team, a player. */
   name: string;
-  /** The shots its stats strip counts. */
-  stats: readonly Shot[];
+  /** The shots its stats strip counts; none given, no strip (the compare page has a table). */
+  stats?: readonly Shot[];
   frame: Frame;
   /** Where the pitch is cropped from, in yards from the goal line's far end. */
   from: number;
@@ -58,7 +58,7 @@ export function ShotPanel(props: ShotPanelProps) {
       }
     >
       <h2 class="panel-name">{name}</h2>
-      <StatsStrip shots={props.stats} />
+      {props.stats ? <StatsStrip shots={props.stats} /> : null}
       <div ref={props.stageRef ?? null} class="stage">
         <div class="map-frame" style={`--ratio:${(frame.w / frame.h).toFixed(4)}`}>
           <div

@@ -89,6 +89,10 @@ export function classPaths(bins: readonly Bin[], step: number, max: number): str
 export const busiest = (bins: readonly Bin[]): number =>
   bins.reduce((m, b) => Math.max(m, b.n), 0);
 
+/** The top of a scale that several maps share: the busiest bin on any of them. */
+export const sharedMax = (...maps: readonly (readonly Bin[])[]): number =>
+  Math.max(0, ...maps.map(busiest));
+
 /** Busiest first, then by place: the order of the text proxy, so the interesting ones come first. */
 export const byBusiest = (bins: readonly Bin[]): Bin[] =>
   [...bins].sort((a, b) => b.n - a.n || a.key - b.key);

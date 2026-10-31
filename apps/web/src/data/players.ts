@@ -62,7 +62,7 @@ export async function loadPlayerShots(
  * hundred squares however many shots there are, which is why this exists beside the shots.
  */
 export function loadPlayerDensity(
-  profile: Player,
+  profile: Pick<Player, 'id'>,
   where: { competition: number | null; season: number | null },
   outcomes: readonly Outcome[] | null,
   signal?: AbortSignal,
