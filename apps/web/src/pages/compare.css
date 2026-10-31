@@ -1,0 +1,279 @@
+/*
+ * The compare page (DESIGN.md section 10): two players, their figures side by side, and a density
+ * map of each on one shared scale. Mobile first, one column; from 52rem the players and the maps
+ * sit side by side. Rules and space, no cards, no radius, no shadow.
+ */
+.compare {
+  display: grid;
+  /* Not `auto`: a column that sizes to its content would take the table's width, not hold it. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  max-width: 62rem;
+  margin-inline: auto;
+}
+
+.compare-head {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-4);
+  border-top: var(--rule) solid var(--ink);
+}
+
+.compare-title {
+  margin: 0;
+  font-size: var(--step-3);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-heading);
+}
+
+.compare-title:focus-visible {
+  outline-offset: 4px;
+}
+
+.compare-lede,
+.compare-prompt {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* The footer waits for the players (see useFooterHidden in lib/hooks.ts): a thing that comes into being did not move. */
+:root[data-busy] .credit {
+  display: none;
+}
+
+.compare-wait {
+  min-height: 100svh;
+}
+
+/* Who is on each side */
+.compare-slots {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* The player on the left, the button that changes them on the right: two lines a side on a phone. */
+.slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: var(--hair) solid var(--ink);
+}
+
+.slot > * {
+  grid-column: 1;
+}
+
+.slot-tag {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.slot .state-actions {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  align-self: center;
+  margin-top: 0;
+}
+
+.slot-name {
+  margin: 0;
+  font-size: var(--step-2);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.slot-name a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.slot-none {
+  color: var(--ink-2);
+  font-size: var(--step-1);
+  font-weight: var(--weight-regular);
+}
+
+.slot-teams {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+}
+
+/* What is shown dims while the next answer loads, and does not move. */
+.compare-body {
+  display: grid;
+  gap: var(--space-6);
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.compare-body[data-loading='true'] {
+  opacity: 0.55;
+}
+
+.compare-section {
+  margin: 0;
+  font-size: var(--step-1);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-heading);
+}
+
+/* The figures: left player, the figure's name, right player. A row reads across. */
+.versus {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.versus-scope {
+  display: grid;
+  gap: 4px;
+  max-width: 26rem;
+}
+
+.versus-select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: var(--hair) solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+}
+
+.versus-table {
+  width: 100%;
+  border-top: var(--rule) solid var(--ink);
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.versus-table th,
+.versus-table td {
+  padding: var(--space-2);
+  border-bottom: var(--hair) solid var(--line-3);
+  vertical-align: baseline;
+}
+
+/* The middle column is the figure's name; the players' columns hug it, so a row is short to read. */
+.versus-table th:nth-child(2) {
+  width: 8.5rem;
+}
+
+.versus-table thead th {
+  padding-top: var(--space-3);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.versus-table thead th:first-child,
+.versus-table td:first-child {
+  text-align: right;
+}
+
+.versus-table thead th:last-child,
+.versus-table td:last-child {
+  text-align: left;
+}
+
+.versus-label {
+  /* The one place a label is a row header: it keeps the tracked mono capitals of every other. */
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-caps);
+  line-height: 1.3;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.versus-figure {
+  font-size: var(--step-1);
+}
+
+/* The better figure: weight and a rule, no colour, so it survives print and every kind of eye. */
+.versus-figure[data-lead='true'] {
+  font-weight: var(--weight-black);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* The two maps */
+.compare-maps {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.compare-map {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.compare-summary {
+  text-align: left;
+}
+
+.compare-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  color: var(--ink-2);
+  text-align: center;
+  pointer-events: none;
+}
+
+.compare-failed .state-actions {
+  margin-top: 0;
+}
+
+/* One key for both maps. */
+.compare-key {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}
+
+.compare-key .map-note {
+  text-align: center;
+}
+
+@media (min-width: 52rem) {
+  .compare-slots,
+  .compare-maps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-7);
+  }
+
+  .versus-table th:nth-child(2) {
+    width: 12rem;
+  }
+
+  /*
+   * The match page fills the window on a wide screen: its map is sized by the box its panel has.
+   * This page scrolls and gives its panels no height, so that box would be none at all (the
+   * player page found this out the hard way). Here the map is as wide as its column and no taller
+   * than the window, as it is on a phone.
+   */
+  .compare-maps .stage {
+    flex: none;
+    container-type: normal;
+  }
+
+  .compare-maps .map-frame {
+    width: min(100% - 14px, (100dvh - 7rem) * var(--ratio));
+    margin-inline: auto;
+  }
+}

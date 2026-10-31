@@ -12,6 +12,8 @@ export interface Option {
   match?: number;
   /** For a recent search: the words to put back in the field. */
   words?: string;
+  /** For a player offered to a slot of the compare page: the id, which choosing it hands over. */
+  player?: number;
 }
 
 export interface OptionGroup {
@@ -88,6 +90,18 @@ export function groupsOf(state: SearchState, recents: readonly string[]): Option
     },
   ];
   return groups.filter((g) => g.options.length > 0);
+}
+
+/**
+ * What the picker lists when it is asked for a player to compare: the players found, and nothing
+ * else. `taken` is the player already on the other side, who is not offered a second time.
+ */
+export function playerGroupsOf(state: SearchState, taken: number | null): OptionGroup[] {
+  if (state.status !== 'ready') return [];
+  const options = state.result.players
+    .filter((p) => p.id !== taken)
+    .map((p) => ({ key: `player-${p.id}`, label: p.name, player: p.id }));
+  return options.length ? [{ key: 'players', title: 'Players', options }] : [];
 }
 
 /** Every option in the order the arrow keys walk them. */

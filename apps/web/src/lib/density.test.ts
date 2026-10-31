@@ -15,6 +15,7 @@ import {
   densityClass,
   describeDensity,
   drawableBins,
+  sharedMax,
 } from './density';
 
 const D: Density = {
@@ -118,6 +119,28 @@ describe('the bins', () => {
     expect(byBusiest(tied).map((b) => b.key)).toEqual(
       tied.map((b) => b.key).sort((a, b) => a - b),
     );
+  });
+});
+
+describe('a scale two maps share', () => {
+  const busy = binsOf(D);
+  const quiet = binsOf({ ...D, n: [1, 10, 2, 1] });
+
+  it('tops out at the busiest bin on either map, and at nothing for no maps', () => {
+    expect(sharedMax(busy, quiet)).toBe(40);
+    expect(sharedMax(quiet, busy)).toBe(40);
+    expect(sharedMax(quiet)).toBe(10);
+    expect(sharedMax([], [])).toBe(0);
+    expect(sharedMax()).toBe(0);
+  });
+
+  it('gives the same count the same tint on both, so the quiet map is the paler one', () => {
+    const max = sharedMax(busy, quiet);
+    // Ten shots are the quiet map's busiest square: the darkest on its own, the third on the shared scale.
+    expect(densityClass(10, busiest(quiet))).toBe(CLASSES);
+    expect(densityClass(10, max)).toBe(3);
+    expect(classPaths(quiet, DENSITY_STEP, max)[CLASSES - 1]).toBe('');
+    expect(classPaths(busy, DENSITY_STEP, max)[CLASSES - 1]).not.toBe('');
   });
 });
 

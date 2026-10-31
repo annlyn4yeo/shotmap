@@ -8,6 +8,9 @@
 //     thousands of shots on the canvas layer: toggle a filter, select a shot, switch to density,
 //     select a square, switch back, walk the list with the arrow keys and open a shot with Enter,
 //     pick a season (back to SVG marks) and every season again (back to the canvas).
+//   compare (INP_PAGE=compare): the two busiest careers side by side, two maps of squares on one
+//     scale: set one season for both (the table and both maps redraw), open a square and close it,
+//     open the search sheet to change a player, type, choose, and set every season again.
 // Run `pnpm build` first, then `pnpm inp` (INP_RUNS=5 by default).
 //
 // Method: Chrome's Event Timing API reports every interaction (pointer, keyboard) with
@@ -25,8 +28,8 @@ const RUNS = Number(process.env.INP_RUNS ?? 5);
 const SEARCH = 'argentina';
 const BUDGET_MS = 200;
 const PAGE = process.env.INP_PAGE ?? 'match';
-if (PAGE !== 'match' && PAGE !== 'player' && PAGE !== 'career') {
-  console.error('INP_PAGE must be match, player or career.');
+if (!['match', 'player', 'career', 'compare'].includes(PAGE)) {
+  console.error('INP_PAGE must be match, player, career or compare.');
   process.exit(1);
 }
 // Where each session starts: the hero match, the player with the most shots in one season, or
@@ -35,6 +38,7 @@ const START = {
   match: '/',
   player: '/players/5207?competition=11&season=27',
   career: `/players/${process.env.INP_PLAYER ?? '5503'}`,
+  compare: '/compare?a=5503&b=5207',
 }[PAGE];
 
 // Mobile: the design size (375 px), touch input, 4x CPU slowdown and Lighthouse's
@@ -153,6 +157,81 @@ async function session(browser, url) {
       async () => {
         await tap('tfoot .seasons-pick');
         await page.waitForSelector('.map[data-layer="canvas"]');
+      },
+      1000,
+    );
+  } else if (PAGE === 'compare') {
+    const waitFor = (selector) => page.waitForSelector(selector, { timeout: 15_000 });
+    const settled = () =>
+      page.waitForFunction(
+        "document.querySelector('.compare-body')?.dataset.loading === 'false'",
+        { timeout: 15_000 },
+      );
+    await waitFor('.compare-map .density path');
+    // The span control, by key (a real input event): one season for both players.
+    await step(
+      'set one season for both',
+      async () => {
+        await page.focus('.versus-select');
+        await page.keyboard.press('ArrowDown');
+        await sleep(200);
+        await settled();
+      },
+      1000,
+    );
+    await step(
+      'open a square',
+      async () => {
+        const layer = await page.$('.compare-map .shot-layer');
+        // The maps are below the figures, off a phone's first screen: bring one into it, as a reader's scroll does.
+        await layer?.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+        await sleep(300);
+        const box = await layer?.boundingBox();
+        if (!box) throw new Error('no map to tap');
+        for (const [fx, fy] of [
+          [0.5, 0.3],
+          [0.45, 0.4],
+          [0.55, 0.25],
+          [0.5, 0.5],
+          [0.4, 0.2],
+        ]) {
+          await page.touchscreen.tap(box.x + box.width * fx, box.y + box.height * fy);
+          await sleep(250);
+          if (await page.$('.compare-map .card')) return;
+        }
+        throw new Error('a tap on the map opened nothing');
+      },
+      1000,
+    );
+    await step(
+      'close it',
+      async () => {
+        await tap('.compare-map .card-close');
+        await page.waitForFunction("!document.querySelector('.compare-map .card')");
+      },
+      800,
+    );
+    await step('open the search sheet', () => tap('.slot .state-button', 1), 800);
+    await step('type a name', () => page.keyboard.type('harry kane', { delay: 90 }), 600);
+    await page.waitForSelector('[id^="opt-player-"]', { timeout: 15_000 });
+    await step(
+      'choose the player',
+      async () => {
+        await tap('[id^="opt-player-"]');
+        await page.waitForFunction("!document.querySelector('dialog[open]')");
+        await waitFor('.compare-map .density path');
+        await settled();
+      },
+      1500,
+    );
+    // The new pair share only the World Cups, so the span fell back to every season: set one again.
+    await step(
+      'set a season again',
+      async () => {
+        await page.focus('.versus-select');
+        await page.keyboard.press('ArrowDown');
+        await sleep(200);
+        await settled();
       },
       1000,
     );

@@ -16,7 +16,7 @@ const FILES: Partial<
 > = {
   matches: { load: () => import('../pages/Browse'), tall: true },
   player: { load: () => import('../pages/Player'), tall: true },
-  compare: { load: () => import('../pages/Soon'), tall: false },
+  compare: { load: () => import('../pages/Compare'), tall: true },
   // Only where the route exists (see __STRESS__): otherwise this line, and the file, are not built.
   ...(__STRESS__
     ? { stress: { load: () => import('../pages/Stress'), tall: true } }

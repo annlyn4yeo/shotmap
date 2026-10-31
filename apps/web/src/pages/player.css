@@ -1,6 +1,6 @@
 /* The player page: a heading, a table of seasons, and the same shot panel as the match page. */
 
-/* The footer waits for the player (see lib/busy.ts): a thing that comes into being did not move. */
+/* The footer waits for the player (see useFooterHidden in lib/hooks.ts): a thing that comes into being did not move. */
 :root[data-busy] .credit {
   display: none;
 }
@@ -45,6 +45,21 @@
 .player-teams {
   margin-top: var(--space-2);
   font-size: var(--step--1);
+}
+
+/* The way to the comparison, set where the player is named. */
+.player-compare {
+  margin: 0;
+}
+
+.player-compare a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: inherit;
+  font-weight: var(--weight-bold);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .player-section {

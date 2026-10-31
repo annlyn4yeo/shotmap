@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SearchResult } from '@shotmap/schema';
-import { announce, flatten, groupsOf } from './options';
+import { announce, flatten, groupsOf, playerGroupsOf } from './options';
 import type { SearchState } from './searcher';
 
 const result: SearchResult = {
@@ -66,6 +66,47 @@ describe('what the picker lists', () => {
   it('lists nothing while the first answer is on its way, and when it failed', () => {
     expect(groupsOf({ status: 'loading', words: 'mes' }, ['x y'])).toEqual([]);
     expect(groupsOf({ status: 'error', words: 'mes' }, [])).toEqual([]);
+  });
+});
+
+describe('what the picker lists when asked for a player', () => {
+  const players: SearchResult = {
+    ...result,
+    players: [
+      { id: 5503, name: 'Lionel Messi' },
+      { id: 5207, name: 'Cristiano Ronaldo' },
+    ],
+  };
+
+  it('offers the players found and nothing else, each carrying its id and no address', () => {
+    const groups = playerGroupsOf(ready(players), null);
+    expect(groups.map((g) => g.title)).toEqual(['Players']);
+    const [first, second] = flatten(groups);
+    expect(first).toMatchObject({ label: 'Lionel Messi', player: 5503 });
+    expect(second).toMatchObject({ label: 'Cristiano Ronaldo', player: 5207 });
+    for (const o of flatten(groups)) {
+      expect(o.href).toBeUndefined();
+      expect(o.key).toMatch(/^[\w-]+$/);
+    }
+  });
+
+  it('does not offer the player already on the other side', () => {
+    expect(flatten(playerGroupsOf(ready(players), 5503)).map((o) => o.player)).toEqual([
+      5207,
+    ]);
+  });
+
+  it('lists nothing when nobody is left, nothing has been typed, or the answer is on its way', () => {
+    expect(playerGroupsOf(ready({ ...players, players: [] }), null)).toEqual([]);
+    expect(
+      playerGroupsOf(
+        ready({ ...players, players: [{ id: 5503, name: 'Lionel Messi' }] }),
+        5503,
+      ),
+    ).toEqual([]);
+    expect(playerGroupsOf({ status: 'idle' }, null)).toEqual([]);
+    expect(playerGroupsOf({ status: 'loading', words: 'mes' }, null)).toEqual([]);
+    expect(playerGroupsOf({ status: 'error', words: 'mes' }, null)).toEqual([]);
   });
 });
 

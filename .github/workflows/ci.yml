@@ -81,11 +81,13 @@ jobs:
       - name: Size budgets
         run: pnpm size
 
-      # MIGRATION.md step 9: the match page on the API, measured on the built app (the default
-      # build, which is the one that ships) with a local Worker behind the preview server's
-      # /v1 proxy. Mobile preset, median of three runs; a miss fails the job: Performance under
-      # 97, LCP over 1.6 s, or any layout shift. The hero is inlined, so these do not wait for
-      # the API; the Worker is here because the page prefetches the next match.
+      # MIGRATION.md steps 9 and 15: every kind of route (the match page, browse, a player, the
+      # comparison, and the search sheet as a user flow) on the built app (the default build,
+      # which is the one that ships) with a local Worker behind the preview server's /v1 proxy.
+      # Mobile preset, median of three runs; a miss fails the job. The match page is held to
+      # Performance 97 and LCP 1.6 s (its hero is inlined, so it does not wait for the API; the
+      # Worker is here because it prefetches the next match), the others to scripts/lh.mjs's own
+      # budgets, and all of them to Accessibility 100 and no layout shift.
       - name: Lighthouse
         run: |
           pnpm --filter @shotmap/api load
@@ -103,5 +105,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-report
-          path: apps/web/lh-report.html
+          path: apps/web/lh-report*.html
           if-no-files-found: ignore

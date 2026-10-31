@@ -161,6 +161,13 @@
   font-weight: var(--weight-bold);
 }
 
+/* Asked for a player, with nothing typed yet: one line, where the results will be. */
+.picker-hint {
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  color: var(--ink-2);
+}
+
 .picker-clear {
   appearance: none;
   min-height: 2.75rem;
