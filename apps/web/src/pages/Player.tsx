@@ -431,7 +431,7 @@ function PlayerMap(props: {
   // The match plots in by minute so it reads as events in sequence; a career has no sequence, and
   // a couple of hundred marks animating on the main thread (SVG children are not composited) cost
   // far more than the effect is worth. So no intro here: the marks are simply there.
-  const { stageRef, mapRef, from, frame, unitPx, intro } = useMapFrame(shots, false);
+  const { stageRef, mapRef, from, frame, unitPx, intro } = useMapFrame(shots, false, false);
   // Keyed by what is hidden, not by the array (a new one every time the URL changes): selecting a
   // shot must not make a couple of hundred marks again.
   const hideKey = view.hide.join();

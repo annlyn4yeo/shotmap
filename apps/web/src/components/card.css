@@ -115,3 +115,26 @@
     scale: 0.97;
   }
 }
+
+/*
+ * The popover grows from the mark it belongs to, not from its own middle: on the right of the mark
+ * it scales from its left edge, on the left of it from its right edge.
+ */
+@media (min-width: 52rem) {
+  .card {
+    transform-origin: left center;
+  }
+
+  .card[data-side='left'] {
+    transform-origin: right center;
+  }
+}
+
+/*
+ * Opened from the keyboard (focus is on a mark or on the list that stands for the canvas), the card
+ * has no entrance at all: keyboard-driven actions do not animate (DESIGN.md section 7), and a key
+ * is pressed far too often for 160 to 320 ms to be anything but a wait.
+ */
+:root:has(:is(.proxy button, .shot):focus-visible) .card {
+  animation: none;
+}

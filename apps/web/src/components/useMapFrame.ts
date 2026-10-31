@@ -28,14 +28,16 @@ export function cropFrom(shots: readonly Shot[]): number {
  * plays (`intro` false for a source with no sequence to play, which then never starts the timer).
  * Put `stageRef` and `mapRef` on the first panel's stage and map, which are measured.
  */
-export function useMapFrame(shots: readonly Shot[], plays = true) {
+export function useMapFrame(shots: readonly Shot[], plays = true, fit = true) {
   const wide = useMedia(WIDE);
   const reduced = useMedia('(prefers-reduced-motion: reduce)');
   const dataFrom = useMemo(() => cropFrom(shots), [shots]);
   const stageRef = useRef<HTMLDivElement>(null);
   const stage = useSize(stageRef);
   // Wide: the map fills the room its panel has, showing more pitch when there is height to spare.
-  const from = wide ? fitFrom(stage, dataFrom) : dataFrom;
+  // `fit` false keeps the crop to the data, on a page whose map is not given a box to fill: the
+  // match page fills the window on a wide screen, the player page scrolls.
+  const from = wide && fit ? fitFrom(stage, dataFrom) : dataFrom;
   const frame = useMemo(() => frameFor('half', 'vertical', from), [from]);
   const mapRef = useRef<HTMLDivElement>(null);
   const width = useWidth(mapRef);

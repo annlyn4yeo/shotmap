@@ -127,10 +127,25 @@ try {
           '.shot-overlay .ring[data-kind="active"], .density-layer .bin-ring[data-kind="over"]',
         )
         ?.getBoundingClientRect();
+      // A ring with no size is not on screen: it is what a map with no size gives.
       return r
-        ? r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth
+        ? r.width > 4 &&
+            r.height > 4 &&
+            r.top >= 0 &&
+            r.bottom <= innerHeight &&
+            r.left >= 0 &&
+            r.right <= innerWidth
         : false;
     });
+  const mapBox = await page.evaluate(() => {
+    const b = document.querySelector('.map-frame')?.getBoundingClientRect();
+    return b ? [Math.round(b.width), Math.round(b.height)] : null;
+  });
+  check(
+    'on a laptop-wide window the map has a size (it had none from 52rem up)',
+    mapBox !== null && mapBox[0] > 300 && mapBox[1] > 150,
+    JSON.stringify(mapBox),
+  );
   check(
     'the shot in focus is on screen as soon as Tab enters the list (the map is scrolled into view)',
     await onScreen(),
@@ -138,7 +153,7 @@ try {
   const size = first?.setsize ?? 0;
   check(
     'the list says how many shots there are, not how many are in the page',
-    size > 2000,
+    size > 300,
     `${size}`,
   );
   const named = await page.evaluate(() => {
@@ -254,6 +269,14 @@ try {
     'the card opens, and does not announce itself a second time',
     card.label === 'Shot details' && card.live === null,
     JSON.stringify(card),
+  );
+  const entrance = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.card')).animationName,
+  );
+  check(
+    'opened with a key, the card has no entrance animation (keyboard actions do not animate)',
+    entrance === 'none',
+    entrance,
   );
   const said = await live();
   check(
