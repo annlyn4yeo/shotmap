@@ -23,11 +23,12 @@
       "vars": { "WEB_ORIGIN": "https://preview.shotmap.pages.dev" },
       "d1_databases": [
         { "binding": "DB", "database_name": "shotmap-staging", "database_id": "08d9f3ac-8ba7-414e-bbbf-7661f0634d97" },
-        // The next release, loaded a part a day (the Free plan writes 100,000 rows a day, the
-        // whole catalogue is 460,718): nothing reads it until it is complete and `DB` above is
+        // The next release, loaded a part a day (the Free plan writes 100,000 rows a day, the kept
+        // catalogue is 137,980: two parts): nothing reads it until it is complete and `DB` above is
         // pointed at it (docs/DEPLOY-API.md). The Worker does not use this binding; wrangler
-        // needs it here to address the database by name.
-        { "binding": "DB_NEXT", "database_name": "shotmap-staging-next", "database_id": "7c2cc659-55a9-4b3c-86c1-6bae83f1f98a" }
+        // needs it here to address the database by name. (shotmap-staging-next, 7c2cc659-55a9-4b3c-86c1-6bae83f1f98a,
+        // held two of six parts of the whole source, abandoned when the catalogue was narrowed.)
+        { "binding": "DB_NEXT", "database_name": "shotmap-staging-lite", "database_id": "b2bb7f65-d229-4845-87b7-ed378749b744" }
       ]
       // With a domain on Cloudflare (decision Q2, the default), route /v1/* on it so it is same-origin:
       // "routes": [{ "pattern": "staging.example.com/v1/*", "zone_name": "example.com" }]

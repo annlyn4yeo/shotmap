@@ -34,6 +34,10 @@ const budgets = {
     // What the player page asks for (300 marks), and what the API gives when not asked (1,000).
     playerShotsPage: 8_000,
     playerShotsDefault: 20_000,
+    // A whole career on the canvas layer (Messi's 2,663 open-play shots), and the same career counted
+    // into 2-yard squares by the database: what the density view asks for instead.
+    playerShotsCareer: 60_000,
+    playerDensity: 6_000,
     search: 3_000,
   },
   /** Server time to the last byte, p95, for a cache hit and for a D1-backed miss. */
@@ -77,6 +81,16 @@ const endpoints = [
     'player shots (default 1000)',
     `/v1/players/${MESSI}/shots?v=${release}`,
     'playerShotsDefault',
+  ],
+  [
+    'player shots (career: all)',
+    `/v1/players/${MESSI}/shots?period=open&limit=10000&v=${release}`,
+    'playerShotsCareer',
+  ],
+  [
+    'player density (career, 2 yd)',
+    `/v1/players/${MESSI}/density?step=2&period=open&v=${release}`,
+    'playerDensity',
   ],
   ['search (two words)', `/v1/search?q=lionel%20mes&v=${release}`, 'search'],
 ];

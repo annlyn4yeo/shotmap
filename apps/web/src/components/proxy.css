@@ -1,0 +1,27 @@
+/*
+ * The keyboard and screen-reader proxy of a canvas: a list of buttons, one for each thing drawn,
+ * that nobody sees. It is hidden by .visually-hidden (clipped, 1px, still in the tab order and the
+ * accessibility tree), and what it focuses is drawn by the layer, as a ring on the map.
+ */
+.proxy {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Corner of the map, so a focused button is where the map is, not at the top of the page. */
+  inset: 0 auto auto 0;
+}
+
+.proxy li {
+  display: block;
+}
+
+.proxy button {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}

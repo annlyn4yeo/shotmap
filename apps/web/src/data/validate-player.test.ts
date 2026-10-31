@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DataError } from './validate';
-import { assertPlayer, assertPlayerShots } from './validate-player';
+import { assertDensity, assertPlayer, assertPlayerShots } from './validate-player';
 
 const stats = { matches: 7, shots: 32, goals: 7, onTarget: 17, xg: 8.9 };
 const profile = () => ({
@@ -126,5 +126,44 @@ describe("a player's shots from the API", () => {
     uneven.cols.xg = [0.1];
     expect(() => assertPlayerShots(uneven)).toThrow(/column xg has 1 rows/);
     expect(() => assertPlayerShots(null)).toThrow(DataError);
+  });
+});
+
+describe('the density check', () => {
+  const density = () => ({
+    step: 2,
+    gx: [54, 54, 55],
+    gy: [19, 20, 20],
+    n: [3, 1, 2],
+    xg: [0.5, 0.04, 0.2],
+    goals: [1, 0, 0],
+  });
+
+  it('takes sparse columns of one length', () => {
+    expect(assertDensity(density()).n).toEqual([3, 1, 2]);
+    expect(
+      assertDensity({ ...density(), gx: [], gy: [], n: [], xg: [], goals: [] }).gx,
+    ).toEqual([]);
+  });
+
+  it('refuses a missing step or column, and columns of different lengths', () => {
+    const noStep = Object.fromEntries(
+      Object.entries(density()).filter(([key]) => key !== 'step'),
+    );
+    expect(() => assertDensity(noStep)).toThrow(DataError);
+    expect(() => assertDensity({ ...density(), step: 0 })).toThrow(DataError);
+    expect(() => assertDensity({ ...density(), goals: [1, 0] })).toThrow(DataError);
+    expect(() => assertDensity({ ...density(), xg: [0.5, 0.04] })).toThrow(DataError);
+    expect(() => assertDensity(null)).toThrow(DataError);
+  });
+
+  it('refuses a count that is not a count, and a square counted twice', () => {
+    expect(() => assertDensity({ ...density(), n: [3, 0, 2] })).toThrow(DataError);
+    expect(() => assertDensity({ ...density(), n: [3, 1.5, 2] })).toThrow(DataError);
+    expect(() => assertDensity({ ...density(), goals: [1, -1, 0] })).toThrow(DataError);
+    expect(() => assertDensity({ ...density(), xg: [0.5, 'x', 0.2] })).toThrow(DataError);
+    expect(() =>
+      assertDensity({ ...density(), gx: [54, 54, 54], gy: [19, 19, 20] }),
+    ).toThrow(/twice/);
   });
 });

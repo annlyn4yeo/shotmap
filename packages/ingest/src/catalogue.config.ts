@@ -1,8 +1,33 @@
 /**
- * The whole open catalogue: what the ingest of every competition and season may and may not do.
+ * The open catalogue the product keeps: which competitions and seasons the ingest takes, and what it
+ * may and may not do with them.
  * The source commit is pinned in data.config.ts; this file is only for what the wider ingest
  * adds: the design ceiling, and the matches and goals that are known to break a rule.
  */
+
+/**
+ * What is kept of the catalogue, by the owner's decision of 2026-10-31: the Premier League, La Liga,
+ * the Champions League, the men's World Cup and the men's Euros, from the 2014 seasons on. (The
+ * source has 80 competition seasons; these are 17 of them, a third of the shots.) A competition is
+ * matched by the name the source gives it, so the women's tournaments, which have names of their own,
+ * are not in. `since` is the year a season starts: 2014 keeps 2014/2015, 2018 and 2022, not 2013/2014.
+ * To keep more, add a line (or lower `since`); `catalogue --everything` takes the whole source.
+ * The original 149 matches (World Cup 2022, Euro 2024, La Liga 2018/19) are all inside.
+ */
+export const scope: readonly { competition: string; since: number }[] = [
+  { competition: 'Premier League', since: 2014 },
+  { competition: 'La Liga', since: 2014 },
+  { competition: 'Champions League', since: 2014 },
+  { competition: 'FIFA World Cup', since: 2014 },
+  { competition: 'UEFA Euro', since: 2014 },
+];
+
+/** The year a season starts: 2015 for '2015/2016', 2022 for '2022'. */
+export const seasonYear = (season: string): number =>
+  Number(/^\d{4}/.exec(season)?.[0] ?? Number.NaN);
+
+export const inScope = (competition: string, season: string): boolean =>
+  scope.some((s) => s.competition === competition && seasonYear(season) >= s.since);
 
 /**
  * The design ceiling (MIGRATION.md, decision Q1): the schema, indexes and endpoint limits are

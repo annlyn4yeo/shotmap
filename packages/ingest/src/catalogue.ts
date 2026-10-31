@@ -1,11 +1,13 @@
 /**
- * The whole StatsBomb open catalogue into one database (MIGRATION.md step M9, decision Q1).
+ * The StatsBomb open catalogue, as far as it is kept (catalogue.config.ts: five competitions from
+ * 2014), into one database (MIGRATION.md step M9, decision Q1; narrowed on 2026-10-31).
  *
  *   pnpm --filter @shotmap/ingest catalogue            # download what is missing, build, check, dump
  *   pnpm --filter @shotmap/ingest catalogue --fetch-only
+ *   pnpm --filter @shotmap/ingest catalogue --everything --out out/everything   # the whole source
  *
- * Every competition and season in competitions.json at the pinned commit, every match whose status
- * is "available". It is resumable (the cache is the progress: run it again and it fetches only what
+ * Every kept competition and season in competitions.json at the pinned commit, every match whose
+ * status is "available". It is resumable (the cache is the progress: run it again and it fetches only what
  * is missing), polite (source.ts), verified (each download against the commit's blob hash), and it
  * writes nothing the checks have not passed: a match that fails is listed with its reason, and the
  * run fails unless the match is in `excluded` (catalogue.config.ts) with a reason of its own.
@@ -18,7 +20,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENUMS } from '@shotmap/schema';
 import { archiveRelease } from './archive';
-import { ceiling, excluded, verifiedGoals } from './catalogue.config';
+import { ceiling, excluded, inScope, scope, verifiedGoals } from './catalogue.config';
 import {
   buildMatch,
   observed,
@@ -49,6 +51,7 @@ const option = (name: string): string | undefined => {
 };
 
 const fetchOnly = flag('fetch-only');
+const everything = flag('everything');
 const limit = Number(option('limit') ?? 0);
 const OUT = resolve(option('out') ?? join(PACKAGE, 'out', 'catalogue'));
 const DB = join(OUT, 'shotmap.sqlite');
@@ -95,7 +98,16 @@ async function main() {
   let t = Date.now();
   const tree = await loadTree(source.ref, CACHE);
   data.useTree(tree);
-  const all = await data.json<RawCompetition[]>('competitions.json');
+  const offered = await data.json<RawCompetition[]>('competitions.json');
+  // What is kept of it (catalogue.config.ts); `--everything` takes all of it.
+  const all = everything
+    ? offered
+    : offered.filter((c) => inScope(c.competition_name, c.season_name));
+  console.log(
+    everything
+      ? `\nThe whole source: ${offered.length} competition seasons`
+      : `\nKept: ${all.length} of the source's ${offered.length} competition seasons (${scope.map((k) => `${k.competition} from ${k.since}`).join('; ')})`,
+  );
   const lists = await pool(all, 4, async (c) => ({
     c,
     list: await data.json<RawMatch[]>(`matches/${c.competition_id}/${c.season_id}.json`),
@@ -132,6 +144,10 @@ async function main() {
     }
   }
   const listed = lists.reduce((n, l) => n + l.list.length, 0);
+  // The exclusions that concern what is kept: one for a match that is not being read is not a fact
+  // about this release.
+  const jobIds = new Set(jobs.map((j) => j.raw.match_id));
+  const excludedHere = Object.entries(excluded).filter(([id]) => jobIds.has(Number(id)));
   console.log(
     `\n${all.length} competition seasons, ${listed} matches listed: ${jobs.length} available with events, ${notAvailable.length} not available, ${noEvents.length} available but with no events file`,
   );
@@ -222,6 +238,10 @@ async function main() {
     process.exit(1);
   }
   const kept = built.filter((b) => !out.has(b.file.meta.id));
+  const keptIds = new Set(kept.map((b) => b.file.meta.id));
+  const verifiedHere = Object.keys(verifiedGoals).filter((shot) =>
+    keptIds.has(Math.floor(Number(shot) / 1000)),
+  );
 
   // 4. The ceiling again, now with the real shot count.
   const shotTotal = kept.reduce(
@@ -284,7 +304,7 @@ ${renamed.length} teams have been spelled more than one way; the newest is used,
     extraMeta: {
       goal_ends_repaired: String(repairs.length),
       low_resolution_matches: String(lowResolution),
-      matches_excluded: String(Object.keys(excluded).length),
+      matches_excluded: String(excludedHere.length),
       teams_respelled: String(renamed.length),
     },
     teamAliases: new Map(
@@ -335,15 +355,15 @@ ${renamed.length} teams have been spelled more than one way; the newest is used,
       problems: c.problems.length,
       ...(c.note ? { note: c.note } : {}),
     })),
-    excluded: Object.entries(excluded).map(([id, q]) => ({
+    excluded: excludedHere.map(([id, q]) => ({
       match: Number(id),
       reason: q.reason,
     })),
     quirks: {
       lowResolutionMatches: lowResolution,
       goalEndsRepaired: repairs.length,
-      matchesExcluded: Object.keys(excluded).length,
-      goalsVerifiedByHand: Object.keys(verifiedGoals).length,
+      matchesExcluded: excludedHere.length,
+      goalsVerifiedByHand: verifiedHere.length,
       teamsRespelled: renamed.length,
     },
   });
@@ -363,14 +383,18 @@ ${renamed.length} teams have been spelled more than one way; the newest is used,
     ),
     catalogue: {
       competitionSeasons: all.length,
+      competitionSeasonsInSource: offered.length,
+      scope: everything ? 'everything' : scope,
       matchesListed: listed,
       matchesIngested: kept.length,
       notAvailable: notAvailable.length,
       noEventsFile: noEvents.length,
-      excluded: Object.entries(excluded).map(([id, q]) => ({ match: Number(id), ...q })),
+      excluded: excludedHere.map(([id, q]) => ({ match: Number(id), ...q })),
       renamedTeams: renamed,
       repairedGoalEnds: repairs,
-      verifiedGoals,
+      verifiedGoals: Object.fromEntries(
+        Object.entries(verifiedGoals).filter(([shot]) => verifiedHere.includes(shot)),
+      ),
       shots: shotTotal,
       shootoutKicks: stats.shootout,
     },

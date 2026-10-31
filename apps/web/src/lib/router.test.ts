@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { pageOf, staysInApp } from './router';
+import { STRESS, pageOf, staysInApp } from './router';
 
 describe('which page a path is', () => {
   it('is the match page at / and at /match/:id', () => {
@@ -13,6 +13,13 @@ describe('which page a path is', () => {
     expect(pageOf('/compare')).toEqual({ name: 'compare' });
     expect(pageOf('/players/5503')).toEqual({ name: 'player', id: 5503 });
     expect(pageOf('/players/5503/')).toEqual({ name: 'player', id: 5503 });
+  });
+
+  it('has the stress page only where STRESS is set, and a dev server (which tests run in) is one', () => {
+    expect(STRESS).toBe(true);
+    expect(pageOf('/dev/stress')).toEqual({ name: 'stress' });
+    expect(pageOf('/dev/stress/')).toEqual({ name: 'stress' });
+    expect(pageOf('/dev')).toEqual({ name: 'missing' });
   });
 
   it('calls everything else missing, and never mistakes the API for a page', () => {

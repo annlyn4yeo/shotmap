@@ -15,6 +15,7 @@ import {
 } from '@shotmap/schema';
 import {
   BadCursor,
+  exportDensity,
   exportMatch,
   exportMatchList,
   exportMatchShots,
@@ -31,6 +32,7 @@ import {
   allowedQuery,
   idOf,
   matchQuery,
+  playerDensityQuery,
   playerShotsQuery,
   searchQuery,
   type RouteId,
@@ -260,6 +262,18 @@ export function createApp(options: AppOptions = {}) {
           filters,
           limit,
         );
+      },
+      'no such player',
+    ),
+  );
+
+  app.get('/v1/players/:id/density', (c) =>
+    serve(
+      c,
+      'getPlayerDensity',
+      (db, query) => {
+        const { filters, step } = playerDensityQuery(query);
+        return exportDensity(db, idOf(c.req.param('id'), 'the player id'), step, filters);
       },
       'no such player',
     ),

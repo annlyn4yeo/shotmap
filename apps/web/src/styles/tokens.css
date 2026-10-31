@@ -38,6 +38,18 @@
 
   --focus: var(--accent);
 
+  /*
+   * Density: one ink in six tints, light to dark. A line in OKLab from --paper-2 to --ink, entered
+   * where it first reaches 3:1 on the darkest paper and stepped evenly in lightness; the last
+   * step is --ink itself (DESIGN.md section 9). pnpm contrast checks every step and the order.
+   */
+  --density-1: #737c7f;
+  --density-2: #5d686c;
+  --density-3: #49535a;
+  --density-4: #354048;
+  --density-5: #222e37;
+  --density-6: #101c26;
+
   /* Type families (fallbacks are metric-matched in fonts.css) */
   --font-sans: 'Archivo', 'Archivo Fallback', Arial, sans-serif;
   --font-mono: 'Azeret Mono', 'Azeret Mono Fallback', 'Courier New', monospace;

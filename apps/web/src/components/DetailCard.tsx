@@ -10,6 +10,8 @@ interface DetailCardProps {
   onClose: () => void;
   /** More for the foot of the card: a shot shown away from its match links back to it. */
   children?: ComponentChildren;
+  /** The map announces the shot itself (a canvas layer's list does): say nothing here as well. */
+  quiet?: boolean;
 }
 
 /**
@@ -17,13 +19,20 @@ interface DetailCardProps {
  * screen: the same element, laid out by CSS. It is a live region, so selecting
  * a shot announces it while focus stays on the mark.
  */
-export function DetailCard({ shot, team, anchor, onClose, children }: DetailCardProps) {
+export function DetailCard({
+  shot,
+  team,
+  anchor,
+  onClose,
+  children,
+  quiet = false,
+}: DetailCardProps) {
   const extra = shot.technique === 'Normal' ? '' : `, ${shot.technique.toLowerCase()}`;
   return (
     <section
       class="card"
       aria-label="Shot details"
-      aria-live="polite"
+      aria-live={quiet ? undefined : 'polite'}
       data-outcome={shot.outcome}
       data-side={anchor.x > 55 ? 'left' : 'right'}
       style={`--ax:${anchor.x.toFixed(1)}%;--ay:${anchor.y.toFixed(1)}%`}

@@ -194,23 +194,22 @@
   text-underline-offset: 3px;
 }
 
+/* Shots or density: the same segmented control as the team switch, with two parts. */
+.player-view {
+  margin-bottom: var(--space-3);
+}
+
+.player-view[data-count='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .player-many {
   max-width: none;
-  margin-block: 0;
+  margin-block: 0 var(--space-3);
 }
 
-.player-narrow {
-  margin: 0;
-  padding-left: var(--space-4);
-}
-
-.player-narrow a {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: 0.25em;
-  min-height: 2.75rem;
-  color: var(--ink);
-  font-weight: var(--weight-semibold);
-  text-underline-offset: 3px;
+/* The map in words, under the key and the chips: a paragraph of its own, set to the left to be read. */
+.player-summary {
+  margin-top: var(--space-3);
+  text-align: left;
 }

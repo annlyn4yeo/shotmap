@@ -13,7 +13,9 @@
     "inp": "node scripts/inp.mjs",
     "fonts": "node scripts/fonts.mjs",
     "contrast": "node scripts/contrast.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fps": "node scripts/fps.mjs",
+    "keyboard": "node scripts/keyboard.mjs"
   },
   "dependencies": {
     "@shotmap/schema": "workspace:*",

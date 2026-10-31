@@ -1,4 +1,4 @@
-import type { Player, PlayerShots } from '@shotmap/schema';
+import type { Density, Player, PlayerShots } from '@shotmap/schema';
 import { fail, isInt, isNum, isObject } from './validate';
 import { assertShots } from './validate-api';
 
@@ -40,6 +40,32 @@ export function assertPlayer(data: unknown): Player {
     stats(s, `${where} season ${s.season.id}`);
   }
   return data as unknown as Player;
+}
+
+/** Sparse bins: five columns of one length, each cell of the grid at most once. */
+export function assertDensity(data: unknown): Density {
+  if (!isObject(data) || !isInt(data.step) || data.step < 1)
+    return fail('density', 'step is missing');
+  const cols = ['gx', 'gy', 'n', 'goals'] as const;
+  const gx = data.gx;
+  if (!isList(gx)) return fail('density', 'column gx is missing');
+  for (const key of cols) {
+    const column = data[key];
+    if (!isList(column) || column.length !== gx.length)
+      return fail('density', `column ${key} is missing or not as long as gx`);
+    if (!column.every((v) => isInt(v) && v >= (key === 'n' ? 1 : 0)))
+      return fail('density', `column ${key} is not counts`);
+  }
+  if (!isList(data.xg) || data.xg.length !== gx.length || !data.xg.every(isNum))
+    return fail('density', 'column xg is missing or not numbers');
+  const gy = data.gy as number[];
+  const seen = new Set<number>();
+  for (const [i, x] of (gx as number[]).entries()) {
+    const key = x * 1024 + (gy[i] ?? 0);
+    if (seen.has(key)) return fail('density', 'a square is counted twice');
+    seen.add(key);
+  }
+  return data as unknown as Density;
 }
 
 export function assertPlayerShots(data: unknown): PlayerShots {

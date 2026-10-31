@@ -5,9 +5,9 @@ import {
   MARK_LIMIT,
   formatPlayerView,
   matchHref,
-  narrowTo,
   parsePlayerView,
   playerUrl,
+  rendererFor,
   selectedSeason,
   shotsIn,
   sortSeasons,
@@ -56,8 +56,10 @@ describe('the player page in the URL', () => {
     const view = {
       competition: 43,
       season: 106,
+      mode: 'shots' as const,
       hide: ['blocked', 'off'] as const,
       shot: 3869685012,
+      bin: null,
       sort: 'shots' as const,
       dir: 'asc' as const,
     };
@@ -66,6 +68,27 @@ describe('the player page in the URL', () => {
       '?competition=43&season=106&hide=blocked,off&shot=3869685012&sort=shots&dir=asc',
     );
     expect(parsePlayerView(search)).toEqual(view);
+  });
+
+  it('keeps the density view and its square, and a shot only in the shots view', () => {
+    const view = {
+      ...DEFAULT_VIEW,
+      mode: 'density' as const,
+      bin: { gx: 54, gy: 19 },
+      hide: ['off'] as const,
+    };
+    const search = formatPlayerView(view);
+    expect(search).toBe('?view=density&hide=off&bin=54-19');
+    expect(parsePlayerView(search)).toEqual(view);
+    // A shot and a square each belong to their own view: the other one's is left behind.
+    expect(parsePlayerView('?view=density&shot=3869685012').shot).toBeNull();
+    expect(parsePlayerView('?bin=54-19').bin).toBeNull();
+    expect(
+      formatPlayerView({ ...DEFAULT_VIEW, shot: 3869685012, bin: { gx: 1, gy: 2 } }),
+    ).toBe('?shot=3869685012');
+    expect(parsePlayerView('?view=heatmap').mode).toBe('shots');
+    expect(parsePlayerView('?view=density&bin=5-x').bin).toBeNull();
+    expect(parsePlayerView('?view=density&bin=5555-1').bin).toBeNull();
   });
 
   it('keeps a season only with its competition, and the other way round', () => {
@@ -96,6 +119,23 @@ describe('the player page in the URL', () => {
     expect(playerUrl(1, view, { sort: 'xg' })).toBe('/players/1?shot=3869685012&sort=xg');
     expect(playerUrl(1, view, { shot: 3857291003 })).toBe('/players/1?shot=3857291003');
     expect(playerUrl(1, view, { shot: null })).toBe('/players/1');
+  });
+
+  it('forgets the selected square the same way, and when the view changes', () => {
+    const view = { ...DEFAULT_VIEW, mode: 'density' as const, bin: { gx: 54, gy: 19 } };
+    expect(playerUrl(1, view, { sort: 'xg' })).toBe(
+      '/players/1?view=density&bin=54-19&sort=xg',
+    );
+    expect(playerUrl(1, view, { hide: ['off'] })).toBe(
+      '/players/1?view=density&hide=off',
+    );
+    expect(playerUrl(1, view, { competition: 43, season: 106 })).toBe(
+      '/players/1?competition=43&season=106&view=density',
+    );
+    expect(playerUrl(1, view, { mode: 'shots' })).toBe('/players/1');
+    expect(playerUrl(1, { ...DEFAULT_VIEW, shot: 3869685012 }, { mode: 'density' })).toBe(
+      '/players/1?view=density',
+    );
   });
 });
 
@@ -182,25 +222,15 @@ describe('choosing a season', () => {
     ).toBeUndefined();
   });
 
-  it('offers the seasons small enough to draw, busiest first', () => {
+  it('draws up to 300 marks as SVG and more on a canvas, by the selection and not by the legend', () => {
     expect(MARK_LIMIT).toBe(300);
-    expect(narrowTo(PROFILE).map((r) => r.season.name)).toEqual([
-      '2018/2019',
-      '2022',
-      '2024',
-    ]);
-    const big = {
-      ...PROFILE,
-      seasons: [row(1, 'Big', 1, 'one', [50, 301, 1, 1, 1]), ...SEASONS],
-    };
-    // One shot over the limit is not offered; exactly at it would be.
-    expect(narrowTo(big).map((r) => r.season.name)).not.toContain('one');
-    const exact = {
-      ...PROFILE,
-      seasons: [row(1, 'Edge', 1, 'edge', [50, 300, 1, 1, 1])],
-    };
-    expect(narrowTo(exact)).toHaveLength(1);
-    expect(narrowTo({ ...PROFILE, seasons: [] })).toEqual([]);
+    expect(rendererFor(0)).toBe('svg');
+    expect(rendererFor(300)).toBe('svg');
+    expect(rendererFor(301)).toBe('canvas');
+    expect(rendererFor(5000)).toBe('canvas');
+    // The busiest season anyone has (228) is SVG; Messi's career (2,666) is canvas.
+    expect(rendererFor(228)).toBe('svg');
+    expect(rendererFor(2666)).toBe('canvas');
   });
 });
 

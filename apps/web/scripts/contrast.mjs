@@ -35,6 +35,12 @@ const rules = [
   ]),
 ];
 
+// The density ramp (DESIGN.md section 9): every step is a mark that must be seen on every paper,
+// neighbouring steps must be told apart, and lightness must fall step by step so it also reads in
+// greyscale. The last step is --ink, not a copy of it that could drift.
+const density = [1, 2, 3, 4, 5, 6].map((i) => `density-${i}`);
+for (const d of density) rules.push([d, papers, 3, 'density bin (non-text)']);
+
 const rows = [];
 let failures = 0;
 const check = (fg, bg, min, use) => {
@@ -45,6 +51,22 @@ const check = (fg, bg, min, use) => {
 };
 for (const [fg, bgs, min, use] of rules) for (const bg of bgs) check(fg, bg, min, use);
 check('accent-ink', 'accent', 4.5, 'text on accent fill (AA)');
+
+// A step is a different class from the next only if the two can be told apart: 1.2:1 is the
+// least that separates neighbouring tints, and the ramp is darker at every step.
+density.slice(1).forEach((d, i) => {
+  const before = density[i];
+  if (before === undefined) return;
+  if (lum(t[d]) >= lum(t[before])) {
+    failures++;
+    console.log(`FAIL  ${d} is not darker than ${before}`);
+  }
+  check(before, d, 1.2, 'neighbouring density classes');
+});
+if (t['density-6'] !== t.ink) {
+  failures++;
+  console.log('FAIL  density-6 is not --ink');
+}
 
 if (process.argv.includes('--md')) {
   console.log('| Foreground | Background | Ratio | Need | Use |');

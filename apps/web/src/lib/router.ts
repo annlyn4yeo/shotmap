@@ -8,7 +8,15 @@ export type Page =
   | { name: 'matches' }
   | { name: 'player'; id: number }
   | { name: 'compare' }
+  | { name: 'stress' }
   | { name: 'missing' };
+
+/**
+ * `/dev/stress` (thousands of synthetic shots, to be measured) exists in a dev server and in a
+ * build made with `VITE_STRESS=1`, and nowhere else: `__STRESS__` is a constant, so a normal build
+ * has neither the route nor the page's file.
+ */
+export const STRESS = __STRESS__;
 
 /** `/` and `/match/:id` are the match page; a trailing slash changes nothing. */
 export function pageOf(pathname: string): Page {
@@ -17,6 +25,7 @@ export function pageOf(pathname: string): Page {
   const path = pathname.replace(/\/+$/, '');
   if (path === '/matches') return { name: 'matches' };
   if (path === '/compare') return { name: 'compare' };
+  if (STRESS && path === '/dev/stress') return { name: 'stress' };
   const player = /^\/players\/(\d{1,9})$/.exec(path)?.[1];
   return player === undefined
     ? { name: 'missing' }
