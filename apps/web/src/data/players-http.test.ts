@@ -103,8 +103,9 @@ describe.skipIf(!API_URL)(`the player page's data (${API_URL ?? 'no API_URL'})`,
       ['goal'],
     );
     expect(total(goals)).toBe(messi.totals.goals);
-    // Far fewer squares than shots: that is what it is for.
-    expect(career.n.length).toBeLessThan(messi.totals.shots / 4);
+    // Fewer squares than shots: that is what it is for. (How many fewer depends on the data: a
+    // career of 1,300 shots is about 280 squares, the 149-match fixture's 200 shots are 136.)
+    expect(career.n.length).toBeLessThan(messi.totals.shots);
   });
 
   it('can name the match a shot is from', async () => {
