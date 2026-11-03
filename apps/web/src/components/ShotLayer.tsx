@@ -2,8 +2,17 @@ import { useMemo, useRef, useState } from 'preact/hooks';
 import type { Outcome } from '@shotmap/schema';
 import { drawOrder } from '../lib/geometry';
 import { HIT_PX } from '../lib/hit';
+import { useWidth } from '../lib/hooks';
 import { markPath } from '../lib/marks';
 import { memo } from '../lib/memo';
+import {
+  countsFrom,
+  pickOnSpot,
+  placeInStack,
+  spotsOf,
+  stackNote,
+  stacksOf,
+} from '../lib/stacks';
 import type { Frame } from './frame';
 import './shots.css';
 
@@ -103,18 +112,64 @@ export function Emphasis(props: {
   );
 }
 
+/** How far a mark reaches from its centre, in pitch units: a goal's ring is outside its disc. */
+const extentOf = (s: MapShot) => (s.outcome === 'goal' ? 1.22 * s.r + 0.4 : s.r);
+
+/**
+ * The count of every spot with more than one mark on it ("×2"), up and to the right of the marks,
+ * in the map's mono with a halo of pitch, as a map labels a point that stands for several. Placed
+ * in the drawing's own coordinates outside the turned group, so the figures stay upright, and
+ * sized from how many CSS pixels a yard is, so they are 11 px on any map. Both layers draw it.
+ */
+export function StackCounts(props: {
+  frame: Frame;
+  spots: readonly (readonly MapShot[])[];
+  unitPx: number;
+}) {
+  const { frame, spots, unitPx } = props;
+  if (spots.length === 0 || unitPx <= 0) return null;
+  const px = 1 / unitPx;
+  return (
+    <g class="stack-counts" aria-hidden="true">
+      {spots.map((stack) => {
+        const s = stack[0];
+        if (!s) return null;
+        const at = frame.place(s.x, s.y);
+        const d = Math.max(...stack.map(extentOf)) * 0.72 + 1.5 * px;
+        // Shown once the last of the spot's marks has plotted in.
+        const last = Math.max(...stack.map((m) => m.delay));
+        return (
+          <text
+            key={s.id}
+            class="stack-count"
+            x={at.x + d}
+            y={at.y - d}
+            font-size={11 * px}
+            stroke-width={3 * px}
+            style={`--d:${last + 260}ms`}
+          >
+            &times;{stack.length}
+          </text>
+        );
+      })}
+    </g>
+  );
+}
+
 interface MarkProps {
   s: MapShot;
   /** The one mark in the tab order. */
   tab: boolean;
   pressed: boolean;
+  /** Said after the mark's label when it shares its spot: ", 2 of 3 shots from this spot". */
+  note: string;
 }
 
 /**
  * One mark. Memoised: selecting or focusing a shot changes two of them, so the other couple of
  * hundred a player's map has are not diffed (nor is their path computed again).
  */
-const Mark = memo(function Mark({ s, tab, pressed }: MarkProps) {
+const Mark = memo(function Mark({ s, tab, pressed, note }: MarkProps) {
   return (
     <path
       class={`shot shot--${s.outcome}`}
@@ -123,7 +178,7 @@ const Mark = memo(function Mark({ s, tab, pressed }: MarkProps) {
       role="button"
       tabindex={tab ? 0 : -1}
       aria-pressed={pressed}
-      aria-label={s.label}
+      aria-label={s.label + note}
       style={`--d:${s.delay}ms`}
     />
   );
@@ -141,6 +196,16 @@ export function ShotLayer(props: ShotLayerProps) {
   );
   const svg = useRef<SVGSVGElement>(null);
   const group = useRef<SVGGElement>(null);
+  // Marks on the same spot: their count is drawn beside them, and a pick there opens each in turn.
+  const stacks = useMemo(() => stacksOf(shots), [shots]);
+  const spots = useMemo(
+    () => spotsOf(stacks, countsFrom(shots.length)),
+    [stacks, shots.length],
+  );
+  // Measured after the first paint, not before it: a measure before it re-renders the layer ahead of
+  // that paint, and on the home page and the match page that held the headline back (LCP). The
+  // counts come a frame after the marks, which is when they fade in anyway.
+  const width = useWidth(svg);
 
   /** One listener finds the nearest mark, so thirty paths need no handlers of their own. */
   const nearest = (clientX: number, clientY: number): MapShot | undefined => {
@@ -222,8 +287,7 @@ export function ShotLayer(props: ShotLayerProps) {
       }}
       onPointerLeave={() => setHoverId(null)}
       onClick={(e) => {
-        const hit = nearest(e.clientX, e.clientY);
-        onSelect(hit && hit.id !== selectedId ? hit.id : null);
+        onSelect(pickOnSpot(nearest(e.clientX, e.clientY)?.id, selectedId, stacks));
       }}
       onKeyDown={onKeyDown}
       onFocusIn={(e) => {
@@ -256,11 +320,18 @@ export function ShotLayer(props: ShotLayerProps) {
             elements was most of what a tap cost on a player's map. */}
         <g class="marks">
           {drawn.map((s) => (
-            <Mark key={s.id} s={s} tab={s.id === roving} pressed={s.id === selectedId} />
+            <Mark
+              key={s.id}
+              s={s}
+              tab={s.id === roving}
+              pressed={s.id === selectedId}
+              note={stackNote(placeInStack(s.id, stacks))}
+            />
           ))}
         </g>
         <Emphasis active={active} selected={selected} />
       </g>
+      <StackCounts frame={frame} spots={spots} unitPx={width / frame.w} />
     </svg>
   );
 }

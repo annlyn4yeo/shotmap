@@ -10,9 +10,23 @@ import { OUTCOMES, type Outcome } from '@shotmap/schema';
 import { drawOrder } from '../lib/geometry';
 import { HitGrid } from '../lib/hitgrid';
 import { useSize } from '../lib/hooks';
+import {
+  countsFrom,
+  pickOnSpot,
+  placeInStack,
+  spotsOf,
+  stackNote,
+  stacksOf,
+} from '../lib/stacks';
 import type { Frame } from './frame';
 import { canvasTransform, paintOutcome, pathOf, readPalette } from './paint';
-import { Emphasis, Trajectory, type MapShot, type ShotLayerProps } from './ShotLayer';
+import {
+  Emphasis,
+  StackCounts,
+  Trajectory,
+  type MapShot,
+  type ShotLayerProps,
+} from './ShotLayer';
 import { ShotProxy } from './ShotProxy';
 import { useDevicePixelRatio } from './useDevicePixelRatio';
 import './canvas.css';
@@ -231,6 +245,25 @@ export function ShotCanvas(props: ShotCanvasProps) {
 
   const focusItem = useCallback((id: number | null) => setFocusId(id), []);
 
+  // Marks on the same spot, among those showing: their count is drawn in the overlay, a pick there
+  // opens each in turn, and each one's entry in the list says it is one of several.
+  const stacks = useMemo(() => stacksOf(shots), [shots]);
+  const spots = useMemo(
+    () => spotsOf(stacks, countsFrom(source.length)),
+    [stacks, source.length],
+  );
+  const items = useMemo(
+    () =>
+      stacks.size === 0
+        ? shots
+        : shots.map((s) =>
+            stacks.has(s.id)
+              ? { ...s, label: s.label + stackNote(placeInStack(s.id, stacks)) }
+              : s,
+          ),
+    [shots, stacks],
+  );
+
   return (
     <>
       <div
@@ -264,19 +297,19 @@ export function ShotCanvas(props: ShotCanvasProps) {
         }}
         onPointerLeave={() => setHoverId(null)}
         onClick={(e) => {
-          const found = hit(e.clientX, e.clientY);
-          onSelect(found && found.id !== selectedId ? found.id : null);
+          onSelect(pickOnSpot(hit(e.clientX, e.clientY)?.id, selectedId, stacks));
         }}
       >
         <g transform={frame.transform}>
           {active ? <Trajectory active={active} /> : null}
           <Emphasis active={active} selected={selected} />
         </g>
+        <StackCounts frame={frame} spots={spots} unitPx={size.w / frame.w} />
       </svg>
       <ShotProxy
         label={label}
         describedBy={describedBy}
-        items={shots}
+        items={items}
         selectedId={selected ? selectedId : null}
         announce={announce}
         onSelect={onSelect}

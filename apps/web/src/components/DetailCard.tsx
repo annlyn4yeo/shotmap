@@ -12,6 +12,8 @@ interface DetailCardProps {
   children?: ComponentChildren;
   /** The map announces the shot itself (a canvas layer's list does): say nothing here as well. */
   quiet?: boolean;
+  /** Which of the shots from its spot this is, when it shares the spot (lib/stacks.ts). */
+  stack?: { at: number; of: number } | undefined;
 }
 
 /**
@@ -26,6 +28,7 @@ export function DetailCard({
   onClose,
   children,
   quiet = false,
+  stack,
 }: DetailCardProps) {
   const extra = shot.technique === 'Normal' ? '' : `, ${shot.technique.toLowerCase()}`;
   return (
@@ -77,6 +80,17 @@ export function DetailCard({
           </dd>
         </div>
       </dl>
+      {stack ? (
+        <p class="card-stack">
+          <span class="num">
+            {stack.at} of {stack.of}
+          </span>{' '}
+          shots from this spot.{' '}
+          {stack.at < stack.of
+            ? 'Choose the mark again for the next.'
+            : 'Choose the mark again to close.'}
+        </p>
+      ) : null}
       {children}
     </section>
   );
