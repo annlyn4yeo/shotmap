@@ -95,6 +95,27 @@
   pointer-events: none;
 }
 
+/*
+ * The count of a spot with more than one mark ("×2", lib/stacks.ts): the map's mono, in ink, with a
+ * halo of pitch so it reads over any mark. Size and halo are set in yards by the layer, so they are
+ * 11 px and 3 px on any map. It steps back with the marks in focus mode.
+ */
+.stack-count {
+  fill: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--paper-2);
+  stroke-linejoin: round;
+  pointer-events: none;
+  user-select: none;
+}
+
+.shot-layer[data-focus='true'] .stack-counts {
+  opacity: 0.28;
+}
+
 /* Focus and selection: a ring drawn once, beside the shot it belongs to. */
 .ring {
   fill: none;
@@ -140,6 +161,18 @@
   .map[data-intro='true'] .ping {
     animation: ping 900ms var(--ease-out) backwards;
     animation-delay: calc(var(--d) + 260ms);
+  }
+
+  /* A spot's count comes once the last of its marks is down. */
+  .map[data-intro='true'] .stack-count {
+    animation: count-in var(--dur-base) var(--ease-out) backwards;
+    animation-delay: var(--d);
+  }
+}
+
+@keyframes count-in {
+  from {
+    opacity: 0;
   }
 }
 

@@ -66,6 +66,24 @@ describe.skipIf(!API_URL)(`the player page's data (${API_URL ?? 'no API_URL'})`,
     }
   });
 
+  it('gives one competition over all its seasons, which is those seasons added up', async () => {
+    const messi = await players.loadPlayer(MESSI);
+    for (const competition of new Set(messi.seasons.map((s) => s.competition.id))) {
+      const rows = messi.seasons.filter((s) => s.competition.id === competition);
+      const shots = rows.reduce((n, s) => n + s.shots, 0);
+      const all = await players.loadPlayerShots(
+        messi,
+        { competition, season: null },
+        shots + 1,
+      );
+      expect(all.truncated, String(competition)).toBe(false);
+      expect(all.shots, String(competition)).toHaveLength(shots);
+      expect(new Set(all.shots.map((s) => s.matchId)).size).toBe(
+        rows.reduce((n, s) => n + s.matches, 0),
+      );
+    }
+  });
+
   it('says it left shots out when the limit is smaller than the selection', async () => {
     const messi = await players.loadPlayer(MESSI);
     const few = await players.loadPlayerShots(

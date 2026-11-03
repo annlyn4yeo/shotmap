@@ -5,6 +5,7 @@ import { placeShootout, playerCounts, tally, teamsOf } from '../lib/derive';
 import { OUTCOME_LABEL, markRadius } from '../lib/geometry';
 import { BOTH, useMedia } from '../lib/hooks';
 import { isFiltered } from '../lib/route';
+import { placeInStack, stacksOf } from '../lib/stacks';
 import { useStore } from '../lib/store';
 import { resetFilters, store, toggleOutcome, update } from '../state/app';
 import { DetailCard } from './DetailCard';
@@ -115,6 +116,11 @@ export function ShotMap({ names, shots }: ShotMapProps) {
       ] as const,
     [mapShots],
   );
+  // Each team's marks on the same spot, as its panel's layer finds them: the card says which of them it is.
+  const stacks = useMemo(
+    () => [stacksOf(perTeam[0]), stacksOf(perTeam[1])] as const,
+    [perTeam],
+  );
   const homeShots = useMemo(() => inScope.filter((x) => x.team === 0).length, [inScope]);
   const awayShots = useMemo(() => inScope.filter((x) => x.team === 1).length, [inScope]);
   const selected = mapShots.find((x) => x.id === route.shot);
@@ -166,6 +172,7 @@ export function ShotMap({ names, shots }: ShotMapProps) {
             <DetailCard
               shot={chosen.shot}
               team={names[t]}
+              stack={placeInStack(chosen.id, stacks[t])}
               anchor={{
                 x: ((anchor.x - frame.x) / frame.w) * 100,
                 y: ((anchor.y - frame.y) / frame.h) * 100,

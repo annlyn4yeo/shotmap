@@ -1,11 +1,11 @@
-import { OUTCOMES, type Outcome } from '@shotmap/schema';
+import { HERO_MATCH_ID, OUTCOMES, type Outcome } from '@shotmap/schema';
 
 export type TeamView = 'both' | 'home' | 'away';
 
 /**
  * Everything that makes a match view shareable, kept in the URL: the match in the path and
  * the filters in the query. Defaults are left out, so the hero match with nothing chosen is
- * just `/`.
+ * just `/match/3869685`. (`/` is the home page; `fromRootQuery` reads the links from before it.)
  *
  *   /match/3857291?team=home&player=5503&hide=off,blocked&so=1&shot=12
  *
@@ -79,8 +79,21 @@ export function formatUrl(route: Route): string {
   if (route.shootout) params.set('so', '1');
   if (route.shot !== null) params.set('shot', String(route.shot));
   const query = params.toString().replaceAll('%2C', ',');
-  const path = route.m === null ? '/' : `/match/${route.m}`;
+  const path = `/match/${route.m ?? HERO_MATCH_ID}`;
   return query ? `${path}?${query}` : path;
+}
+
+const ROOT_KEYS = ['team', 'player', 'hide', 'so', 'shot'];
+
+/**
+ * Before the home page, `/` was the hero match, so a shared `/?team=away&shot=12` meant a view of
+ * it. That link, as the URL that means the same now, or null if the query holds none of the match
+ * view's keys (a plain `/` is the home page).
+ */
+export function fromRootQuery(search: string): string | null {
+  const params = new URLSearchParams(search);
+  if (!ROOT_KEYS.some((key) => params.has(key))) return null;
+  return formatUrl(filtersOf(params, null, params.get('player')));
 }
 
 const LEGACY_KEYS = ['m', 'team', 'p', 'player', 'hide', 'so', 'shot'];

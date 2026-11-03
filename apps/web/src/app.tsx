@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { MapSkeleton, ErrorState } from './components/States';
-import { Picker, PickerButton } from './components/Picker';
+import { Picker } from './components/Picker';
 import { ShotMap } from './components/ShotMap';
 import { MatchLine, Scoreline } from './components/Scoreline';
-import { Wordmark } from './components/Wordmark';
+import { SiteHeader } from './components/SiteHeader';
 import { LazyPage } from './components/lazy';
+import { Home } from './pages/Home';
 import { boardFromDetail, type BoardMeta } from './data/board';
 import type { LoadedMatch } from './data/match';
 import { useDelayed } from './lib/hooks';
@@ -60,16 +61,16 @@ function MatchPage() {
 
   return (
     <div class="app">
-      <header class="board">
-        <div class="board-inner">
-          <div class="board-top">
-            <Wordmark />
-            {board ? <MatchLine board={board} /> : <span class="board-meta" />}
-            <PickerButton />
+      <div class="masthead">
+        <SiteHeader current="match" plain />
+        {/* The scoreboard: the match's title block, in ink, under the sheet's own header. */}
+        <div class="board">
+          <div class="board-inner">
+            {board ? <MatchLine board={board} /> : <p class="board-meta" />}
+            {board ? <Scoreline board={board} /> : null}
           </div>
-          {board ? <Scoreline board={board} /> : null}
         </div>
-      </header>
+      </div>
 
       <main class="main">
         {match.status === 'error' ? (
@@ -105,7 +106,7 @@ function Missing() {
       <p>Nothing lives at this address.</p>
       <div class="state-actions">
         <a class="state-button" data-primary href="/">
-          The 2022 final
+          Shotmap home
         </a>
         <a class="state-button" href="/matches">
           Browse the matches
@@ -118,29 +119,19 @@ function Missing() {
 /** Every other page: the same paper and header, without a scoreboard, and it scrolls. */
 function OtherPage() {
   const page = useStore(store, (s) => s.page);
+  const home = page.name === 'home';
   return (
     <div class="app" data-flow>
-      <header class="board">
-        <div class="board-inner">
-          <div class="board-top">
-            <a class="home-link" href="/" aria-label="Shotmap, home">
-              <Wordmark />
-            </a>
-            <nav class="board-meta" aria-label="Main">
-              <a class="nav-link" href="/matches">
-                All matches
-              </a>
-              <a class="nav-link" href="/compare">
-                Compare
-              </a>
-            </nav>
-            <PickerButton />
-          </div>
-        </div>
-      </header>
+      <SiteHeader current={page.name} />
 
       <main class="main">
-        {page.name === 'missing' ? <Missing /> : <LazyPage page={page} />}
+        {home ? (
+          <Home />
+        ) : page.name === 'missing' ? (
+          <Missing />
+        ) : (
+          <LazyPage page={page} />
+        )}
       </main>
 
       <Credit />

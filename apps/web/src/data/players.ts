@@ -24,20 +24,22 @@ export interface PlayerShots {
 }
 
 /**
- * A player's open-play shots across matches, for the whole career or one competition season,
- * at most `limit`. Shootout kicks are left out, as on the match page by default. The shots are
- * decoded strictly: an id the profile does not know is an error, not a wrong mark.
+ * A player's open-play shots across matches, for the whole career, one competition (every season
+ * of it: the home page's Champions League plate) or one competition season, at most `limit`.
+ * A season without its competition means nothing and is ignored. Shootout kicks are left out, as
+ * on the match page by default. The shots are decoded strictly: an id the profile does not know
+ * is an error, not a wrong mark.
  */
 export async function loadPlayerShots(
-  profile: Player,
+  profile: Pick<Player, 'id' | 'name' | 'teams'>,
   where: { competition: number | null; season: number | null },
   limit: number,
   signal?: AbortSignal,
 ): Promise<PlayerShots> {
   const query = new URLSearchParams();
-  if (where.competition !== null && where.season !== null) {
+  if (where.competition !== null) {
     query.set('competition', String(where.competition));
-    query.set('season', String(where.season));
+    if (where.season !== null) query.set('season', String(where.season));
   }
   query.set('period', 'open');
   query.set('limit', String(limit));
@@ -58,8 +60,9 @@ export async function loadPlayerShots(
 
 /**
  * Where a player's open-play shots started, counted into squares by the database: for the whole
- * career or one competition season, and only the outcomes asked for (none given means all). A few
- * hundred squares however many shots there are, which is why this exists beside the shots.
+ * career, one competition (every season of it) or one competition season, and only the outcomes
+ * asked for (none given means all). A season without its competition is ignored, as for the shots.
+ * A few hundred squares however many shots there are, which is why this exists beside the shots.
  */
 export function loadPlayerDensity(
   profile: Pick<Player, 'id'>,
@@ -69,9 +72,9 @@ export function loadPlayerDensity(
 ): Promise<Density> {
   const query = new URLSearchParams();
   query.set('step', String(DENSITY_STEP));
-  if (where.competition !== null && where.season !== null) {
+  if (where.competition !== null) {
     query.set('competition', String(where.competition));
-    query.set('season', String(where.season));
+    if (where.season !== null) query.set('season', String(where.season));
   }
   query.set('period', 'open');
   if (outcomes) query.set('outcome', [...outcomes].join(','));

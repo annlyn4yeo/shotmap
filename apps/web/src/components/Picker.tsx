@@ -15,11 +15,13 @@ import {
 } from '../state/app';
 import './picker.css';
 
-/** The button in the header that opens the search. */
+/** The button in the header that opens the search. Wide, it says what it searches. */
 export function PickerButton() {
   return (
     <button type="button" class="pick-button" onClick={openPicker} aria-haspopup="dialog">
-      <span>Search</span>
+      <span>
+        Search<span class="pick-more"> players, teams, matches</span>
+      </span>
       <kbd class="pick-key" aria-hidden="true">
         /
       </kbd>

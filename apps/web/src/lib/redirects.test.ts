@@ -62,6 +62,6 @@ describe('public/_redirects', () => {
 
   it('does not rewrite / itself: it is the app already', () => {
     expect(rewrites('/')).toBe(false);
-    expect(pageOf('/').name).toBe('match');
+    expect(pageOf('/').name).toBe('home');
   });
 });

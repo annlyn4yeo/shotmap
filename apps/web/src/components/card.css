@@ -37,6 +37,20 @@
   line-height: 1.15;
 }
 
+/* A shot that shares its spot: which of them it is, and how to reach the next (lib/stacks.ts). */
+.card-stack {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: var(--hair) solid var(--line-3);
+  font-size: var(--step--1);
+  color: var(--ink-2);
+}
+
+.card-stack .num {
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
 .card-team {
   margin-top: var(--space-1);
   color: var(--ink-2);

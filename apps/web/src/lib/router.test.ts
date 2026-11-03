@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { STRESS, pageOf, staysInApp } from './router';
 
 describe('which page a path is', () => {
-  it('is the match page at / and at /match/:id', () => {
-    for (const path of ['/', '/match/3869685', '/match/3869685/', '/match/1'])
+  it('is the home page at / and the match page at /match/:id', () => {
+    expect(pageOf('/')).toEqual({ name: 'home' });
+    for (const path of ['/match/3869685', '/match/3869685/', '/match/1'])
       expect(pageOf(path), path).toEqual({ name: 'match' });
   });
 

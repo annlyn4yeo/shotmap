@@ -60,6 +60,7 @@ import {
   type SortKey,
 } from '../lib/player';
 import type { Page } from '../lib/router';
+import { placeInStack, stacksOf } from '../lib/stacks';
 import { useStore } from '../lib/store';
 import { claimArrival, navigate, store } from '../state/app';
 import './player.css';
@@ -479,6 +480,8 @@ function PlayerMap(props: {
     [marks, hidden],
   );
   const selected = placed.find((p) => p.id === view.shot);
+  // Marks on the same spot (every penalty of a career is on one): the card says which of them it is.
+  const stacks = useMemo(() => stacksOf(placed), [placed]);
   // The card comes one paint after the ring and the dimming that answer the tap: on a map this
   // dense, building it in the same frame was a third of what the tap cost.
   const late = useAfterPaint(selected);
@@ -674,6 +677,7 @@ function PlayerMap(props: {
               shot={open.shot}
               team={player.teams.find((t) => t.id === open.shot.teamId)?.name ?? ''}
               quiet={renderer === 'canvas'}
+              stack={placeInStack(open.id, stacks)}
               anchor={{
                 x: ((anchor.x - frame.x) / frame.w) * 100,
                 y: ((anchor.y - frame.y) / frame.h) * 100,

@@ -96,7 +96,7 @@ function emitNotFoundPage(): Plugin {
         <h1 class="state-title">No such page</h1>
         <p>Nothing lives at this address.</p>
         <div class="state-actions">
-          <a class="state-button" data-primary href="/">The 2022 final</a>
+          <a class="state-button" data-primary href="/">Shotmap home</a>
           <a class="state-button" href="/matches">Browse the matches</a>
         </div>
       </section>
