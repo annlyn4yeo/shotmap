@@ -31,7 +31,9 @@ const PARTS = join(RELEASES, 'parts.json');
 // The D1 database and the Worker's address for each environment (wrangler.jsonc has the ids).
 const ENVIRONMENTS = {
   staging: {
-    database: 'shotmap-staging',
+    // The kept catalogue's database, which `DB` is bound to since 2026-11-03 (wrangler.jsonc keeps the
+    // 149-match `shotmap-staging` as `DB_PREVIOUS`).
+    database: 'shotmap-staging-lite',
     url: process.env.API_URL ?? 'https://shotmap-api-staging.annlynanto.workers.dev',
   },
   production: { database: 'shotmap', url: process.env.API_URL ?? '' },
@@ -231,7 +233,7 @@ async function publish(env, m, yes, paid) {
   console.log(
     `To undo: pnpm --filter @shotmap/api release rollback --env ${env.name} --yes`,
   );
-  process.exit(ok ? 0 : 1);
+  process.exitCode = ok ? 0 : 1;
 }
 
 // The Free plan: a release too big for one day goes in a part a day, into a database nothing serves
@@ -404,7 +406,7 @@ async function rollback(env, yes) {
       ? `\n${env.name} serves ${last.previous} again.`
       : '\nRestored, but the Worker has not confirmed it yet.',
   );
-  process.exit(ok ? 0 : 1);
+  process.exitCode = ok ? 0 : 1;
 }
 
 switch (command) {
@@ -458,7 +460,9 @@ switch (command) {
     const m = pick(option('release'));
     const now = await liveRelease(env);
     console.log(`${env.name} serves ${now}; expected ${m.release}`);
-    process.exit(now === m.release ? 0 : 1);
+    // Not process.exit: on Windows it tears the process down while fetch's socket is still closing,
+    // and Node dies on a libuv assertion after the line above is printed.
+    process.exitCode = now === m.release ? 0 : 1;
     break;
   }
   default:

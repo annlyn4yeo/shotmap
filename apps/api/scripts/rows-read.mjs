@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const API = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const [file, ...rest] = process.argv.slice(2);
 const env = rest[rest.indexOf('--env') + 1];
-const DATABASES = { staging: 'shotmap-staging', production: 'shotmap' };
+const DATABASES = { staging: 'shotmap-staging-lite', production: 'shotmap' };
 if (!file || !DATABASES[env]) {
   console.error(
     'Usage: node scripts/rows-read.mjs statements.json --env staging|production',
