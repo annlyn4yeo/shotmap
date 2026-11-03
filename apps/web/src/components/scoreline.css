@@ -1,8 +1,8 @@
-/* The scoreboard: an ink band across the top, like a map's title block. */
+/*
+ * The scoreboard: an ink band under the header (SiteHeader), like a map's title block: which match,
+ * then the score. Only the match page has it.
+ */
 .board {
-  --wordmark-size: var(--step-1);
-  --wordmark-accent: var(--accent-on-ink);
-  --wordmark-core: var(--ink);
   background: var(--ink);
   color: var(--paper);
 }
@@ -13,32 +13,13 @@
   padding: var(--space-3) var(--gutter) var(--space-4);
 }
 
-.board-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    'brand pick'
-    'meta meta';
-  align-items: center;
-  gap: var(--space-2) var(--space-5);
-  padding-bottom: var(--space-3);
-}
-
-.board-top > .wordmark {
-  grid-area: brand;
-  justify-self: start;
-}
-
-.board-top > .pick-button {
-  grid-area: pick;
-}
-
 .board-meta {
-  grid-area: meta;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
   max-width: none;
+  min-height: 1.5em;
+  padding-bottom: var(--space-3);
   font-size: var(--step--1);
   color: var(--on-ink-2);
 }
@@ -116,66 +97,5 @@
 
   .board-pens {
     font-size: var(--step-2);
-  }
-}
-
-/* The button that opens the match picker */
-.pick-button {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 2.75rem;
-  padding: 0 var(--space-4);
-  border: var(--hair) solid var(--on-ink-2);
-  background: transparent;
-  color: var(--paper);
-  font-family: var(--font-mono);
-  font-size: var(--step--2);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    transform var(--dur-press) var(--ease-out),
-    border-color var(--dur-fast) ease;
-}
-
-.pick-button:active {
-  transform: scale(0.97);
-}
-
-.pick-button:focus-visible {
-  outline-color: var(--accent-on-ink);
-}
-
-.pick-key {
-  display: none;
-  padding: 0 0.45em;
-  border: var(--hair) solid var(--on-ink-2);
-  color: var(--on-ink-2);
-  font: inherit;
-  line-height: 1.5;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .pick-button:hover {
-    border-color: var(--paper);
-  }
-}
-
-@media (min-width: 52rem) {
-  .board-top {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: 'brand meta pick';
-    gap: var(--space-5);
-  }
-
-  .board-meta {
-    justify-content: flex-end;
-  }
-
-  .pick-key {
-    display: inline-block;
   }
 }

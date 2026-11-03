@@ -7,6 +7,7 @@ import {
   DEFAULT_ROUTE,
   formatUrl,
   fromLegacyHash,
+  fromRootQuery,
   parseUrl,
   type Route,
 } from '../lib/route';
@@ -33,7 +34,7 @@ export interface AppState {
 }
 
 export const store = createStore<AppState>({
-  page: { name: 'match' },
+  page: { name: 'home' },
   search: '',
   route: DEFAULT_ROUTE,
   match: { id: 0, status: 'loading', data: null },
@@ -175,7 +176,9 @@ export function choosePlayer(slot: Slot, id: number): void {
 /** Read the URL, load what it points at, and keep the two in step. Call once. */
 export function init(): void {
   // A link from before path routes keeps its hash; turn it into the URL that means the same.
-  const legacy = fromLegacyHash(location.hash);
+  const legacy =
+    fromLegacyHash(location.hash) ??
+    (location.pathname === '/' ? fromRootQuery(location.search) : null);
   if (legacy) history.replaceState(null, '', legacy);
   // The inlined hero is read by seedFromDocument before this runs, so the first view needs no request.
   syncLocation(false);

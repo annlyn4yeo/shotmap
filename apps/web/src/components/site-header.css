@@ -1,0 +1,204 @@
+/*
+ * The header (DESIGN.md section 12): the sheet's top margin, on the paper, not a band of ink. It
+ * lines up with the page's content column. A double rule closes it (1.5 px, a 3 px gap, 1 px: the
+ * plates' neatline), and under the page you are on the first rule thickens to 3 px. No radius, no
+ * shadow, no blur; one family of type, the mono only for the key hint.
+ */
+.site-header {
+  --wordmark-size: var(--step-1);
+  padding: 0 var(--gutter) calc(var(--hair) + 3px);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.site-header-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'brand nav pick';
+  align-items: center;
+  column-gap: var(--space-4);
+  max-width: calc(var(--page-max) - 2 * var(--gutter));
+  min-height: 3.5rem;
+  margin-inline: auto;
+  border-bottom: var(--rule) solid var(--ink);
+}
+
+/* The second rule of the pair. */
+.site-header-inner::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(-1 * (var(--rule) + 3px + var(--hair)));
+  border-top: var(--hair) solid var(--ink);
+  pointer-events: none;
+}
+
+/* On the match page the scoreboard's ink follows at once: it is the edge. */
+.site-header[data-plain] {
+  padding-bottom: 0;
+}
+
+.site-header[data-plain] .site-header-inner {
+  border-bottom: 0;
+}
+
+.site-header[data-plain] .site-header-inner::after {
+  content: none;
+}
+
+.site-header .home-link {
+  grid-area: brand;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The links: plain words, the page you are on in ink and ruled, the others a step lighter. */
+.site-nav {
+  grid-area: nav;
+  display: flex;
+  align-self: stretch;
+  gap: var(--space-4);
+}
+
+.site-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition: color var(--dur-fast) ease;
+}
+
+/* The thickened rule: lies over the header's own, so the line under the page you are on is heavier. */
+.site-link::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(-1 * var(--rule));
+  height: 3px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition:
+    transform 220ms var(--ease-out),
+    background-color var(--dur-fast) ease;
+}
+
+.site-link[aria-current='page'] {
+  color: var(--ink);
+}
+
+.site-link[aria-current='page']::after {
+  transform: scaleX(1);
+}
+
+.site-header[data-plain] .site-link::after {
+  content: none;
+}
+
+/* The search, shaped as the field it opens. */
+.site-header .pick-button {
+  grid-area: pick;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: var(--hair) solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    border-color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease;
+}
+
+.site-header .pick-button:active {
+  transform: scale(0.98);
+}
+
+.pick-more,
+.pick-key {
+  display: none;
+}
+
+.site-header .pick-key {
+  flex: none;
+  padding: 0 0.55em;
+  border: var(--hair) solid var(--line);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  line-height: 1.5;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .site-link:hover {
+    color: var(--ink);
+  }
+
+  .site-link:not([aria-current='page']):hover::after {
+    background: var(--line-2);
+    transform: scaleX(1);
+  }
+
+  .site-header .pick-button:hover {
+    border-color: var(--ink);
+    background: var(--paper-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-link::after {
+    transition: none;
+  }
+}
+
+/* Very narrow: the links go under the wordmark and the search, so nothing is squeezed. */
+@media (max-width: 22.5rem) {
+  .site-header-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand pick'
+      'nav nav';
+  }
+}
+
+/* Wide: the links sit beside the wordmark, and the search says what it searches. */
+@media (min-width: 52rem) {
+  .site-header-inner {
+    column-gap: var(--space-7);
+    min-height: 4rem;
+  }
+
+  .site-nav {
+    gap: var(--space-5);
+  }
+
+  .site-header .pick-button {
+    width: 19rem;
+  }
+
+  .pick-more,
+  .site-header .pick-key {
+    display: inline;
+  }
+
+  .site-header .pick-key {
+    display: inline-block;
+  }
+}

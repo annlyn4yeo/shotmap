@@ -1,6 +1,34 @@
 import type { RefObject } from 'preact';
 import { useEffect, useLayoutEffect, useState } from 'preact/hooks';
 
+/**
+ * True from the first time the element is at least `amount` in view, or within `margin` of it
+ * (a root margin, such as '300px', to start something just before it is seen). Never false again.
+ */
+export function useSeen(
+  ref: RefObject<Element | null>,
+  amount = 0.25,
+  margin = '0px',
+): boolean {
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: amount, rootMargin: margin },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, seen]);
+  return seen;
+}
+
 /** Tracks a media query. */
 export function useMedia(query: string): boolean {
   const [matches, setMatches] = useState(() => matchMedia(query).matches);
@@ -15,16 +43,20 @@ export function useMedia(query: string): boolean {
 }
 
 /**
- * Width of an element in CSS pixels, from one ResizeObserver, rounded to 8 px
- * so a drag-resize does not re-render on every pixel. 0 until first measured.
+ * Width of an element in CSS pixels, rounded to 8 px so a drag-resize does not re-render on every
+ * pixel. 0 until first measured. Measured once after the first paint (an effect, so it never holds
+ * that paint back) and then by one ResizeObserver; the first measure does not wait for the
+ * observer, which a window the browser is not painting never hears from.
  */
 export function useWidth(ref: RefObject<Element | null>): number {
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const round = (w: number) => Math.round(w / 8) * 8;
+    setWidth(round(el.getBoundingClientRect().width));
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(Math.round(entry.contentRect.width / 8) * 8);
+      if (entry) setWidth(round(entry.contentRect.width));
     });
     observer.observe(el);
     return () => observer.disconnect();

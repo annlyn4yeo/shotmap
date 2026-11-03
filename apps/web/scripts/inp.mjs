@@ -35,7 +35,7 @@ if (!['match', 'player', 'career', 'compare'].includes(PAGE)) {
 // Where each session starts: the hero match, the player with the most shots in one season, or
 // the player with the most in a career (Lionel Messi's 2,663, the heaviest page there is).
 const START = {
-  match: '/',
+  match: '/match/3869685',
   player: '/players/5207?competition=11&season=27',
   career: `/players/${process.env.INP_PLAYER ?? '5503'}`,
   compare: '/compare?a=5503&b=5207',

@@ -3,16 +3,17 @@ import {
   DEFAULT_ROUTE,
   formatUrl,
   fromLegacyHash,
+  fromRootQuery,
   isFiltered,
   parseUrl,
   type Route,
 } from './route';
 
 describe('the match view in the URL', () => {
-  it('is just / for the defaults, so the plain page stays clean', () => {
-    expect(formatUrl(DEFAULT_ROUTE)).toBe('/');
-    expect(parseUrl('/', '')).toEqual(DEFAULT_ROUTE);
-    expect(parseUrl('/', '?')).toEqual(DEFAULT_ROUTE);
+  it('is just the hero’s path for the defaults, so the plain page stays clean', () => {
+    expect(formatUrl(DEFAULT_ROUTE)).toBe('/match/3869685');
+    expect(parseUrl('/match/3869685', '')).toEqual({ ...DEFAULT_ROUTE, m: 3869685 });
+    expect(parseUrl('/match/3869685', '?')).toEqual({ ...DEFAULT_ROUTE, m: 3869685 });
   });
 
   it('puts the match in the path and the filters in the query, and round-trips them', () => {
@@ -64,6 +65,20 @@ describe('the match view in the URL', () => {
   });
 });
 
+// Before the home page, `/` was the hero match, so a shared `/?team=away&shot=12` was a view of it.
+describe('links to / from before the home page', () => {
+  it('open the hero with the view they asked for', () => {
+    expect(fromRootQuery('?team=away&shot=12')).toBe('/match/3869685?team=away&shot=12');
+    expect(fromRootQuery('?hide=off&so=1')).toBe('/match/3869685?hide=off&so=1');
+    expect(fromRootQuery('?player=5503')).toBe('/match/3869685?player=5503');
+  });
+
+  it('leave a plain / to the home page, and a query that is not the match view', () => {
+    for (const search of ['', '?', '?utm_source=x', '?a=1'])
+      expect(fromRootQuery(search), search).toBeNull();
+  });
+});
+
 // Links shared before path routes kept everything in the hash. The page turns one into the URL
 // that means the same, once, with replaceState; `p` was an index into the match's player list,
 // which means nothing now, so it is dropped, and `shot` is still the position within the match.
@@ -75,9 +90,9 @@ describe('legacy hash links', () => {
   });
 
   it('keep a link that was only a shot, and a link to the hero', () => {
-    expect(fromLegacyHash('#shot=37')).toBe('/?shot=37');
+    expect(fromLegacyHash('#shot=37')).toBe('/match/3869685?shot=37');
     expect(fromLegacyHash('#m=3857300&shot=0')).toBe('/match/3857300?shot=0');
-    expect(fromLegacyHash('#team=away')).toBe('/?team=away');
+    expect(fromLegacyHash('#team=away')).toBe('/match/3869685?team=away');
   });
 
   it('never read p as a player id, whatever its size', () => {
@@ -92,7 +107,9 @@ describe('legacy hash links', () => {
   });
 
   it('drop what is not understood, as the URL does', () => {
-    expect(fromLegacyHash('#m=abc&team=sideways&hide=nonsense&shot=1.5')).toBe('/');
+    expect(fromLegacyHash('#m=abc&team=sideways&hide=nonsense&shot=1.5')).toBe(
+      '/match/3869685',
+    );
   });
 
   it('leave an ordinary hash alone, so a #fragment is not redirected', () => {

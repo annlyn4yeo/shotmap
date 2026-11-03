@@ -18,12 +18,20 @@ import { preview } from 'vite';
 // server). If port 4173 is taken, Vite takes the next free one and we use its URL.
 const RUNS = Number(process.env.LH_RUNS ?? 3);
 const PAGES = [
-  // The match page: the hero is inlined, so nothing waits for the API.
+  // The home page: in the first file, and its plate is the inlined hero, so nothing waits for the
+  // API (the competitions and counts fill in below the fold).
   {
     name: 'home',
     path: '/',
     budget: { performance: 97, accessibility: 100, lcpMs: 1600, cls: 0 },
     report: 'lh-report.html',
+  },
+  // The match page, opened on the hero: inlined too, so held to the same budget.
+  {
+    name: 'match',
+    path: '/match/3869685',
+    budget: { performance: 97, accessibility: 100, lcpMs: 1600, cls: 0 },
+    report: 'lh-report-match.html',
   },
   // The browse page: its own file, then the API, so it is allowed the app's 2.0 s LCP.
   {
@@ -65,7 +73,7 @@ const PAGES = [
 // The search: a reader opens the sheet over the match page and types a name. A timespan holds the
 // layout shift, blocking time and the slowest interaction (INP) of doing that, and a snapshot taken
 // with the results listed holds the accessibility of the sheet as it stands. No page load is judged
-// here (the match page's own is `home`).
+// here (the match page's own is `match`).
 const SEARCH = {
   name: 'search',
   query: 'messi',
@@ -100,7 +108,7 @@ async function searchPass(base, chrome) {
   try {
     const page = await browser.newPage();
     const flow = await startFlow(page, { name: 'Search' });
-    await flow.navigate(new URL('/', base).href, { name: 'The match page' });
+    await flow.navigate(new URL('/match/3869685', base).href, { name: 'The match page' });
     await flow.startTimespan({ name: 'Open the search and type a name' });
     await page.click('.pick-button');
     await page.waitForSelector('dialog.picker[open] .picker-input');

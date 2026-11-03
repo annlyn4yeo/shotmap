@@ -4,6 +4,7 @@
  * decides what to show. No library.
  */
 export type Page =
+  | { name: 'home' }
   | { name: 'match' }
   | { name: 'matches' }
   | { name: 'player'; id: number }
@@ -18,10 +19,10 @@ export type Page =
  */
 export const STRESS = __STRESS__;
 
-/** `/` and `/match/:id` are the match page; a trailing slash changes nothing. */
+/** `/` is the home page and `/match/:id` the match page; a trailing slash changes nothing. */
 export function pageOf(pathname: string): Page {
-  if (pathname === '/' || /^\/match\/\d{1,9}\/?$/.test(pathname))
-    return { name: 'match' };
+  if (pathname === '/') return { name: 'home' };
+  if (/^\/match\/\d{1,9}\/?$/.test(pathname)) return { name: 'match' };
   const path = pathname.replace(/\/+$/, '');
   if (path === '/matches') return { name: 'matches' };
   if (path === '/compare') return { name: 'compare' };
