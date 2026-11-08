@@ -12,10 +12,21 @@ const circle = (cx: number, cy: number, r: number) =>
  *   with the even-odd rule make the gap and the hole without a second element.
  * - saved: a ring (stroke and a light fill from CSS).
  * - off: cross. blocked: solid square. post: open triangle.
+ *
+ * `plain` is a goal on a quiet map: the disc and its hole, without the outer ring, which at that
+ * size would only close up against its neighbours. The other marks are the same either way.
  */
-export function markPath(outcome: Outcome, x: number, y: number, r: number): string {
+export function markPath(
+  outcome: Outcome,
+  x: number,
+  y: number,
+  r: number,
+  plain = false,
+): string {
   switch (outcome) {
     case 'goal': {
+      // The hole follows the disc, with no floor: a small goal must stay a solid mark, not a ring.
+      if (plain) return circle(x, y, r) + circle(x, y, 0.22 * r);
       const gap = 0.12 * r + 0.2;
       const ring = 0.1 * r + 0.2;
       return (

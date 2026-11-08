@@ -7,6 +7,7 @@ import { markPath } from '../lib/marks';
 import { memo } from '../lib/memo';
 import {
   countsFrom,
+  onPenaltySpot,
   pickOnSpot,
   placeInStack,
   spotsOf,
@@ -15,6 +16,11 @@ import {
 } from '../lib/stacks';
 import type { Frame } from './frame';
 import './shots.css';
+
+// Reached through this file on purpose. Two lazy pages importing ShotFigures directly make the
+// bundler carve this file and shots.css out of the first file into a shared chunk: two more requests
+// on every page, which took the compare page's LCP from 1.55 s to 1.66 s (docs/adr/0012).
+export { ShotKey, ZoneTable } from './ShotFigures';
 
 /**
  * A mark on the pitch being drawn. It carries only what the layer needs, not a shot, so any
@@ -36,6 +42,8 @@ export interface MapShot {
   r: number;
   /** Intro animation delay in ms, from the match minute. */
   delay: number;
+  /** Drawn on a quiet map: one ink for all but goals, a goal without its outer ring. */
+  quiet?: boolean;
 }
 
 /**
@@ -56,6 +64,10 @@ export interface ShotLayerProps {
   intro: boolean;
   label: string;
   onSelect: (id: number | null) => void;
+  /** On a quiet map, the outcome whose colour is back: the rest step back behind it. */
+  lit?: Outcome | null | undefined;
+  /** On a quiet map, what the penalty spot's label says ("7/10 pens") instead of its count. */
+  penaltyNote?: string | undefined;
 }
 
 /**
@@ -86,7 +98,7 @@ export function Emphasis(props: {
       {active ? (
         <path
           class={`shot shot--${active.outcome}`}
-          d={markPath(active.outcome, active.x, active.y, active.r)}
+          d={markPath(active.outcome, active.x, active.y, active.r, active.quiet)}
           aria-hidden="true"
         />
       ) : null}
@@ -113,20 +125,27 @@ export function Emphasis(props: {
 }
 
 /** How far a mark reaches from its centre, in pitch units: a goal's ring is outside its disc. */
-const extentOf = (s: MapShot) => (s.outcome === 'goal' ? 1.22 * s.r + 0.4 : s.r);
+const extentOf = (s: MapShot) =>
+  s.outcome === 'goal' && !s.quiet ? 1.22 * s.r + 0.4 : s.r;
+
+/** Where the penalty spot's leader ends: just outside the box, clear of the crowd in it. */
+const LEADER_TO_Y = 63.2;
 
 /**
  * The count of every spot with more than one mark on it ("×2"), up and to the right of the marks,
  * in the map's mono with a halo of pitch, as a map labels a point that stands for several. Placed
  * in the drawing's own coordinates outside the turned group, so the figures stay upright, and
- * sized from how many CSS pixels a yard is, so they are 11 px on any map. Both layers draw it.
+ * sized from how many CSS pixels a yard is, so they are 11 px on any map. Both layers draw it. With
+ * a `penaltyNote` the penalty spot's label goes out of the crowd along a leader, as a map labels a
+ * point it cannot label in place.
  */
 export function StackCounts(props: {
   frame: Frame;
   spots: readonly (readonly MapShot[])[];
   unitPx: number;
+  penaltyNote?: string | undefined;
 }) {
-  const { frame, spots, unitPx } = props;
+  const { frame, spots, unitPx, penaltyNote } = props;
   if (spots.length === 0 || unitPx <= 0) return null;
   const px = 1 / unitPx;
   return (
@@ -135,6 +154,24 @@ export function StackCounts(props: {
         const s = stack[0];
         if (!s) return null;
         const at = frame.place(s.x, s.y);
+        if (penaltyNote && onPenaltySpot(s)) {
+          const from = frame.place(s.x, s.y + Math.max(...stack.map(extentOf)));
+          const to = frame.place(s.x, LEADER_TO_Y);
+          return (
+            <g key={s.id}>
+              <path class="stack-leader" d={`M${from.x} ${from.y}L${to.x} ${to.y}`} />
+              <text
+                class="stack-count"
+                x={to.x + 3 * px}
+                y={to.y + 4 * px}
+                font-size={11 * px}
+                stroke-width={3 * px}
+              >
+                {penaltyNote}
+              </text>
+            </g>
+          );
+        }
         const d = Math.max(...stack.map(extentOf)) * 0.72 + 1.5 * px;
         // Shown once the last of the spot's marks has plotted in.
         const last = Math.max(...stack.map((m) => m.delay));
@@ -173,7 +210,7 @@ const Mark = memo(function Mark({ s, tab, pressed, note }: MarkProps) {
   return (
     <path
       class={`shot shot--${s.outcome}`}
-      d={markPath(s.outcome, s.x, s.y, s.r)}
+      d={markPath(s.outcome, s.x, s.y, s.r, s.quiet)}
       data-i={s.id}
       role="button"
       tabindex={tab ? 0 : -1}
@@ -184,8 +221,32 @@ const Mark = memo(function Mark({ s, tab, pressed, note }: MarkProps) {
   );
 });
 
+/**
+ * One outcome in its own colour, above the dimmed marks: drawn again rather than restyled, so a
+ * couple of hundred marks are not touched. The marks that can be joined are one path, one element;
+ * goals are each their own, because an even-odd fill would cut holes where two of them overlap.
+ */
+const LitMarks = memo(function LitMarks(props: {
+  shots: readonly MapShot[];
+  lit: Outcome;
+}) {
+  const { shots, lit } = props;
+  const own = shots.filter((s) => s.outcome === lit);
+  const path = (s: MapShot) => markPath(s.outcome, s.x, s.y, s.r, s.quiet);
+  return (
+    <g class="lit" aria-hidden="true">
+      {lit === 'goal' ? (
+        drawOrder(own).map((s) => <path key={s.id} class="shot shot--goal" d={path(s)} />)
+      ) : (
+        <path class={`shot shot--${lit}`} d={own.map(path).join('')} />
+      )}
+    </g>
+  );
+});
+
 export function ShotLayer(props: ShotLayerProps) {
-  const { frame, shots, selectedId, intro, onSelect } = props;
+  const { frame, shots, selectedId, intro, onSelect, lit, penaltyNote } = props;
+  const quiet = shots[0]?.quiet === true;
   // Hover and focus change often, so they live here: the rest of the map never re-renders for them.
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [focusId, setFocusId] = useState<number | null>(null);
@@ -199,8 +260,8 @@ export function ShotLayer(props: ShotLayerProps) {
   // Marks on the same spot: their count is drawn beside them, and a pick there opens each in turn.
   const stacks = useMemo(() => stacksOf(shots), [shots]);
   const spots = useMemo(
-    () => spotsOf(stacks, countsFrom(shots.length)),
-    [stacks, shots.length],
+    () => spotsOf(stacks, countsFrom(shots.length), penaltyNote !== undefined),
+    [stacks, shots.length, penaltyNote],
   );
   // Measured after the first paint, not before it: a measure before it re-renders the layer ahead of
   // that paint, and on the home page and the match page that held the headline back (LCP). The
@@ -280,6 +341,7 @@ export function ShotLayer(props: ShotLayerProps) {
       role="group"
       aria-label={props.label}
       data-focus={active !== undefined}
+      data-lit={lit ?? undefined}
       focusable="false"
       onPointerMove={(e) => {
         if (e.pointerType === 'mouse')
@@ -318,7 +380,7 @@ export function ShotLayer(props: ShotLayerProps) {
 
         {/* Focus mode dims this one group, not every mark: a restyle of a couple of hundred
             elements was most of what a tap cost on a player's map. */}
-        <g class="marks">
+        <g class="marks" data-quiet={quiet || undefined}>
           {drawn.map((s) => (
             <Mark
               key={s.id}
@@ -329,9 +391,15 @@ export function ShotLayer(props: ShotLayerProps) {
             />
           ))}
         </g>
+        {lit ? <LitMarks shots={shots} lit={lit} /> : null}
         <Emphasis active={active} selected={selected} />
       </g>
-      <StackCounts frame={frame} spots={spots} unitPx={width / frame.w} />
+      <StackCounts
+        frame={frame}
+        spots={spots}
+        unitPx={width / frame.w}
+        penaltyNote={penaltyNote}
+      />
     </svg>
   );
 }

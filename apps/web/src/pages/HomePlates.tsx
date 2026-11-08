@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Player } from '@shotmap/schema';
+import type { Outcome, Player } from '@shotmap/schema';
 import { DensityCells } from '../components/Density';
 import { Pitch } from '../components/Pitch';
-import { ShotLayer, type MapShot } from '../components/ShotLayer';
+import { ShotKey, ShotLayer, ZoneTable, type MapShot } from '../components/ShotLayer';
 import { frameFor } from '../components/frame';
 import { loadPlayer, loadPlayerDensity, loadPlayerShots } from '../data/players';
 import { shotLabel, type Shot } from '../data/shots';
+import { tally } from '../lib/derive';
 import {
   DENSITY_STEP,
   binsOf,
@@ -14,10 +15,11 @@ import {
   drawableBins,
   type Bin,
 } from '../lib/density';
-import { markRadius } from '../lib/geometry';
+import { isQuiet, markRadius, quietRadius } from '../lib/geometry';
 import { BOTH, useMedia, useSeen, useWidth } from '../lib/hooks';
 import { DEFAULT_ROUTE, formatUrl } from '../lib/route';
 import { seasonSpan } from '../lib/seasons';
+import { penaltyNote, zoneClaim, zoneRows } from '../lib/zones';
 import { navigate } from '../state/app';
 
 /**
@@ -92,6 +94,7 @@ export function CompetitionPlate({
 
   const shots = ready ? data.shots : [];
   const drawn = useMemo(() => shots.filter((s) => s.x >= PLATE_FROM), [shots]);
+  const quiet = isQuiet(drawn.length);
   const marks: MapShot[] = useMemo(
     () =>
       drawn.map((s) => ({
@@ -104,11 +107,19 @@ export function CompetitionPlate({
         y: s.y,
         ex: s.ex,
         ey: s.ey,
-        r: markRadius(s.xg, unitPx),
+        r: quiet
+          ? quietRadius(s.xg, s.outcome, unitPx, drawn.length)
+          : markRadius(s.xg, unitPx),
         delay: 0,
+        quiet,
       })),
-    [drawn, unitPx],
+    [drawn, unitPx, quiet],
   );
+  // The key: a choice that stays (the only way on a phone), and a pointer's that lasts as it does.
+  const [pressed, setPressed] = useState<Outcome | null>(null);
+  const [pointed, setPointed] = useState<Outcome | null>(null);
+  const counts = useMemo(() => (ready ? tally(drawn) : null), [ready, drawn]);
+  const rows = useMemo(() => (ready ? zoneRows(shots) : null), [ready, shots]);
 
   const open = (id: number | null) => {
     const shot = drawn.find((s) => s.shotId === id);
@@ -118,17 +129,18 @@ export function CompetitionPlate({
     navigate(formatUrl({ ...DEFAULT_ROUTE, m: shot.matchId, team, shot: shot.id }));
   };
 
-  const rows = ready
+  const seasons = ready
     ? data.profile.seasons.filter((r) => r.competition.id === competition)
     : [];
   const name = ready ? data.profile.name : '';
-  const where = rows[0]?.competition.name ?? '';
-  const matches = rows.reduce((n, r) => n + r.matches, 0);
+  const where = seasons[0]?.competition.name ?? '';
+  const matches = seasons.reduce((n, r) => n + r.matches, 0);
   const goals = drawn.filter((s) => s.outcome === 'goal').length;
   const outside = shots.length - drawn.length;
 
   return (
     <figure class="plate">
+      <p class="plate-claim">{rows ? zoneClaim(rows) : ' '}</p>
       <div ref={frameRef} class="map-frame" style={`--ratio:${FRAME.w} / ${FRAME.h}`}>
         <div class="map" data-fade>
           <Pitch
@@ -147,6 +159,8 @@ export function CompetitionPlate({
               intro={false}
               label={`${name}'s shots in the ${where}. Choose one to open it on its match page.`}
               onSelect={open}
+              lit={quiet ? (pointed ?? pressed) : null}
+              penaltyNote={quiet ? penaltyNote(drawn) : undefined}
             />
           ) : null}
         </div>
@@ -157,15 +171,26 @@ export function CompetitionPlate({
         ) : ready ? (
           <span>
             {plural(drawn.length, 'shot')} in {plural(matches, 'match', 'matches')},{' '}
-            {seasonSpan(rows.map((r) => r.season.name))}. {plural(goals, 'goal')}.
+            {seasonSpan(seasons.map((r) => r.season.name))}. {plural(goals, 'goal')}.
             {outside > 0 ? ` ${nf.format(outside)} from beyond 40 yards not drawn.` : ''}
             {data.truncated ? ' Only the first ones are drawn.' : ''} Choose a mark to
-            open that shot.
+            open that shot, or a result below to bring its colour back.
           </span>
         ) : (
           <span>{' '}</span>
         )}
       </figcaption>
+      <ShotKey
+        counts={counts}
+        pressed={pressed}
+        onToggle={(o) => {
+          // A choice is what shows from here on: taking one back clears it under the pointer too.
+          setPressed((was) => (was === o ? null : o));
+          setPointed(null);
+        }}
+        onPreview={setPointed}
+      />
+      <ZoneTable rows={rows} />
     </figure>
   );
 }

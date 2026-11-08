@@ -20,7 +20,7 @@ import {
 import { DetailCard } from '../components/DetailCard';
 import { OutcomeFilter } from '../components/OutcomeFilter';
 import { ShotCanvas } from '../components/ShotCanvas';
-import type { MapShot } from '../components/ShotLayer';
+import { ZoneTable, type MapShot } from '../components/ShotLayer';
 import { ShotPanel } from '../components/ShotPanel';
 import { HALFWAY, useMapFrame } from '../components/useMapFrame';
 import {
@@ -42,7 +42,7 @@ import {
 } from '../lib/density';
 import { EMPTY_COMPARE, compareUrl } from '../lib/compare';
 import { tally } from '../lib/derive';
-import { markRadius } from '../lib/geometry';
+import { isQuiet, markRadius, quietRadius } from '../lib/geometry';
 import { useAfterPaint, useFooterHidden } from '../lib/hooks';
 import {
   KEYS_HINT,
@@ -62,6 +62,7 @@ import {
 import type { Page } from '../lib/router';
 import { placeInStack, stacksOf } from '../lib/stacks';
 import { useStore } from '../lib/store';
+import { penaltyNote, zoneRows } from '../lib/zones';
 import { claimArrival, navigate, store } from '../state/app';
 import './player.css';
 
@@ -454,6 +455,8 @@ function PlayerMap(props: {
   // Which layer draws them follows the selection, never the legend: hiding an outcome must not
   // swap the SVG for a canvas under the reader's finger.
   const renderer = rendererFor(drawable.length);
+  // So does how it is drawn: goals as the figure and the rest one ink, on a map of a hundred or more.
+  const quiet = isQuiet(drawable.length);
   const mode: MapMode = truncated ? 'density' : view.mode;
   // Made once, then filtered: hiding an outcome removes its marks and leaves the others be, so the
   // layer does not draw them again.
@@ -470,10 +473,21 @@ function PlayerMap(props: {
         y: shot.y,
         ex: shot.ex,
         ey: shot.ey,
-        r: markRadius(shot.xg, unitPx),
+        r: quiet
+          ? quietRadius(shot.xg, shot.outcome, unitPx, drawable.length)
+          : markRadius(shot.xg, unitPx),
         delay: 0,
+        quiet,
       })),
-    [drawable, unitPx],
+    [drawable, unitPx, quiet],
+  );
+  // A chip pointed at brings its colour back. Local, and only this map re-renders: the marks are
+  // memoised, and what changes is one element's opacity and one drawn above it.
+  const [pointed, setPointed] = useState<Outcome | null>(null);
+  const zones = useMemo(() => (quiet ? zoneRows(shots) : null), [quiet, shots]);
+  const note = useMemo(
+    () => (quiet && hidden.size === 0 ? penaltyNote(drawable) : undefined),
+    [quiet, hidden, drawable],
   );
   const placed = useMemo(
     () => marks.filter((p) => !hidden.has(p.outcome)),
@@ -546,6 +560,8 @@ function PlayerMap(props: {
         : [...view.hide, outcome],
     });
 
+  const lit = quiet && pointed && !hidden.has(pointed) ? pointed : null;
+
   const summary =
     mode === 'density'
       ? `${describeDensity(drawBins, BIN_STEP)} ${KEYS_HINT}`
@@ -583,6 +599,8 @@ function PlayerMap(props: {
         describedBy="map-summary"
         announce={open ? shotAnnouncement(open.shot) : ''}
         onSelect={select}
+        lit={lit}
+        penaltyNote={note}
       />
     );
   }
@@ -645,6 +663,8 @@ function PlayerMap(props: {
         shots={placed}
         selectedId={selected?.id ?? null}
         onSelect={select}
+        lit={lit}
+        penaltyNote={note}
         layer={layer}
         layerName={mode === 'density' ? 'density' : renderer}
         underlay={
@@ -703,12 +723,20 @@ function PlayerMap(props: {
         counts={counts}
         hidden={hidden}
         onToggle={toggle}
+        onPreview={mode === 'shots' && quiet ? setPointed : undefined}
         note={
           mode === 'density'
             ? 'Each square is shaded by how many of the chosen shots started in it. The scale is yards from the goal line.'
-            : undefined
+            : quiet
+              ? 'Everything but goals is one ink, and mark size shows expected goals (xG) at a smaller scale. The scale is yards from the goal line.'
+              : undefined
         }
       />
+      {zones && !truncated ? (
+        <div class="player-zones">
+          <ZoneTable rows={zones} />
+        </div>
+      ) : null}
       {summary ? (
         <p id="map-summary" class="map-note player-summary">
           {summary}

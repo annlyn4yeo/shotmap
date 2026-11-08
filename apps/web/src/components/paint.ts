@@ -24,6 +24,8 @@ export interface Ink {
    * where marks overlap, and an even-odd fill cuts its holes mark by mark, so those go one by one.
    */
   solid: boolean;
+  /** A stroke of this colour under each mark, 1.5 px, so marks stay apart where they overlap. */
+  halo?: string;
 }
 
 export type Palette = Record<Outcome, Ink>;
@@ -34,14 +36,63 @@ export function tint(hex: string, opacity: number): string {
   return `rgb(${n >> 16} ${(n >> 8) & 255} ${n & 255} / ${opacity})`;
 }
 
-/** The five outcomes' inks, from the tokens as the page has them (so no colour is written twice). */
-export function readPalette(
-  style: Pick<CSSStyleDeclaration, 'getPropertyValue'>,
-): Palette {
-  const token = (name: string) => {
-    const value = style.getPropertyValue(`--${name}`).trim();
-    return /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
+type TokenSource = Pick<CSSStyleDeclaration, 'getPropertyValue'>;
+
+const tokensOf = (style: TokenSource) => (name: string) => {
+  const value = style.getPropertyValue(`--${name}`).trim();
+  return /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
+};
+
+/** The stroke of every mark but a goal on a quiet map, in CSS pixels: shots.css. */
+const QUIET_STROKE = 1.25;
+
+/**
+ * A quiet map's inks (shots.css): one ink for all but goals, without the tinted fills, so the only
+ * fills left that cannot go in one stroke of the brush are the goals' own.
+ */
+export function readQuietPalette(style: TokenSource): Palette {
+  const token = tokensOf(style);
+  const line = token('line');
+  const stroke = {
+    fill: null,
+    stroke: line,
+    width: QUIET_STROKE,
+    evenodd: false,
+    solid: false,
   };
+  return {
+    goal: {
+      fill: token('goal'),
+      stroke: null,
+      width: 0,
+      evenodd: true,
+      solid: false,
+      halo: token('paper-2'),
+    },
+    saved: stroke,
+    off: stroke,
+    post: stroke,
+    blocked: { fill: line, stroke: null, width: 0, evenodd: false, solid: true },
+  };
+}
+
+/** One outcome with its colour back on a quiet map: the same marks, each in its own colour. */
+export function readLitPalette(style: TokenSource): Palette {
+  const token = tokensOf(style);
+  const quiet = readQuietPalette(style);
+  const line = (name: Outcome) => ({ ...quiet[name], stroke: token(name) });
+  return {
+    goal: quiet.goal,
+    saved: line('saved'),
+    off: line('off'),
+    post: line('post'),
+    blocked: { ...quiet.blocked, fill: token('blocked') },
+  };
+}
+
+/** The five outcomes' inks, from the tokens as the page has them (so no colour is written twice). */
+export function readPalette(style: TokenSource): Palette {
+  const token = tokensOf(style);
   const goal = token('goal');
   const saved = token('saved');
   const off = token('off');
@@ -104,11 +155,13 @@ const PATHS = new WeakMap<MapShot, Path2D>();
 export function pathOf(mark: MapShot): Path2D {
   let path = PATHS.get(mark);
   if (!path) {
-    path = new Path2D(markPath(mark.outcome, mark.x, mark.y, mark.r));
+    path = new Path2D(markPath(mark.outcome, mark.x, mark.y, mark.r, mark.quiet));
     PATHS.set(mark, path);
   }
   return path;
 }
+
+const HALO_PX = 1.5;
 
 /** The part of a 2D context painting needs, so a test can stand in for it. */
 export interface Brush {
@@ -150,9 +203,15 @@ export function paintOutcome(
   const shapes = marks.map(path);
   if (ink.fill) {
     brush.fillStyle = ink.fill;
+    if (ink.halo) brush.strokeStyle = ink.halo;
+    if (ink.halo) brush.lineWidth = HALO_PX * unit;
     if (ink.solid) brush.fill(join(shapes), 'nonzero');
     else
-      for (const shape of shapes) brush.fill(shape, ink.evenodd ? 'evenodd' : 'nonzero');
+      for (const shape of shapes) {
+        // The halo goes under its own mark, as `paint-order: stroke` puts it in the SVG layer.
+        if (ink.halo) brush.stroke(shape);
+        brush.fill(shape, ink.evenodd ? 'evenodd' : 'nonzero');
+      }
   }
   if (ink.stroke) {
     brush.strokeStyle = ink.stroke;

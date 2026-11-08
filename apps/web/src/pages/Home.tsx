@@ -2,7 +2,7 @@ import type { RefObject } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { HERO_MATCH_ID, OUTCOMES, PITCH, type Meta, type Outcome } from '@shotmap/schema';
 import { Pitch } from '../components/Pitch';
-import { ShotLayer, type MapShot } from '../components/ShotLayer';
+import { ShotKey, ShotLayer, ZoneTable, type MapShot } from '../components/ShotLayer';
 import { frameFor } from '../components/frame';
 import { delayFor } from '../components/useMapFrame';
 import { loadMeta } from '../data/browse';
@@ -261,7 +261,8 @@ function Key() {
         <figcaption class="key-scale-note">
           <strong>Expected goals (xG)</strong> is how often a shot like it is scored, from
           0 to 1. A penalty is about <span class="num">0.78</span>. A mark&rsquo;s area
-          follows its xG.
+          follows its xG. On a map of a hundred shots or more, every mark is smaller and
+          everything but goals is one ink.
         </figcaption>
       </figure>
     </section>
@@ -370,7 +371,9 @@ function usePlates(ref: RefObject<Element | null>): Plates | 'error' | null {
   return plates;
 }
 
-/** A plate before its file and data are in: the same empty pitch, the same height of caption. */
+const noop = () => undefined;
+
+/** A plate before its file and data are in: the same empty pitch, the same height of everything. */
 function PlatePlaceholder(props: {
   frameRef: RefObject<HTMLDivElement | null>;
   title: string;
@@ -379,6 +382,7 @@ function PlatePlaceholder(props: {
 }) {
   return (
     <figure class="plate">
+      {props.density ? null : <p class="plate-claim"> </p>}
       <div
         ref={props.frameRef}
         class="map-frame"
@@ -394,6 +398,12 @@ function PlatePlaceholder(props: {
         {props.density ? <span class="tint-key" /> : null}
         <span>{props.failed ?? ' '}</span>
       </figcaption>
+      {props.density ? null : (
+        <>
+          <ShotKey counts={null} pressed={null} onToggle={noop} onPreview={noop} />
+          <ZoneTable rows={null} />
+        </>
+      )}
     </figure>
   );
 }
@@ -493,8 +503,8 @@ function Index({ match, meta }: { match: LoadedMatch; meta: Meta | 'error' | nul
       <article class="sheet sheet--player">
         <h3 class="sheet-title">A player, shot by shot</h3>
         <p class="sheet-note">
-          {RONALDO.name} in La Liga, every shot of his in the data. Each mark is one shot,
-          sized by its xG.
+          {RONALDO.name} in La Liga, every shot in the data. Goals stand out; everything
+          else steps back.
         </p>
         <LazyCompetitionPlate player={RONALDO.id} competition={LA_LIGA} />
         <a class="sheet-link" href={`/players/${RONALDO.id}`}>

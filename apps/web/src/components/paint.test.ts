@@ -1,7 +1,15 @@
 import type { Outcome } from '@shotmap/schema';
 import { describe, expect, it } from 'vitest';
 import { frameFor } from './frame';
-import { canvasTransform, paintOutcome, readPalette, tint, type Brush } from './paint';
+import {
+  canvasTransform,
+  paintOutcome,
+  readLitPalette,
+  readPalette,
+  readQuietPalette,
+  tint,
+  type Brush,
+} from './paint';
 import type { MapShot } from './ShotLayer';
 
 const TOKENS: Record<string, string> = {
@@ -10,8 +18,13 @@ const TOKENS: Record<string, string> = {
   '--off': '#52687a',
   '--blocked': '#85571b',
   '--post': '#1d6a52',
+  '--line': '#5a7080',
+  '--paper-2': '#e1e6df',
 };
-const palette = readPalette({ getPropertyValue: (name) => TOKENS[name] ?? '' });
+const page = { getPropertyValue: (name: string) => TOKENS[name] ?? '' };
+const palette = readPalette(page);
+const quiet = readQuietPalette(page);
+const lit = readLitPalette(page);
 
 const mark = (id: number, outcome: Outcome): MapShot => ({
   id,
@@ -64,6 +77,32 @@ describe('the palette', () => {
   it('is never undefined for a token the page lacks (a missing colour paints black, not nothing)', () => {
     const none = readPalette({ getPropertyValue: () => '' });
     expect(none.goal.fill).toBe('#000000');
+  });
+});
+
+describe('the quiet palette', () => {
+  it('is one ink for all but goals, as shots.css draws them', () => {
+    expect(quiet.saved).toMatchObject({ fill: null, stroke: '#5a7080', width: 1.25 });
+    expect(quiet.off).toMatchObject({ fill: null, stroke: '#5a7080', width: 1.25 });
+    expect(quiet.post).toMatchObject({ fill: null, stroke: '#5a7080', width: 1.25 });
+    expect(quiet.blocked).toMatchObject({ fill: '#5a7080', stroke: null, solid: true });
+  });
+
+  it('keeps a goal in the accent, with a halo of the pitch', () => {
+    expect(quiet.goal).toMatchObject({
+      fill: '#bf3a12',
+      stroke: null,
+      evenodd: true,
+      halo: '#e1e6df',
+    });
+  });
+
+  it('gives an outcome its own colour back without changing how it is drawn', () => {
+    expect(lit.saved).toMatchObject({ fill: null, stroke: '#1b5e92', width: 1.25 });
+    expect(lit.off).toMatchObject({ fill: null, stroke: '#52687a', width: 1.25 });
+    expect(lit.post).toMatchObject({ fill: null, stroke: '#1d6a52', width: 1.25 });
+    expect(lit.blocked).toMatchObject({ fill: '#85571b', stroke: null, solid: true });
+    expect(lit.goal).toEqual(quiet.goal);
   });
 });
 
@@ -168,6 +207,30 @@ describe('painting an outcome', () => {
 
   it('scales a stroke by the pitch units in a CSS pixel, so it is as wide on screen on any pitch', () => {
     expect(paint('off', [1], 0.5).calls).toEqual(['stroke #52687a 1.125']);
+  });
+
+  it('strokes each goal halo under its own mark, 1.5 px in CSS pixels, before filling it', () => {
+    const { brush, calls } = recorder();
+    paintOutcome(brush, [mark(1, 'goal'), mark(2, 'goal')], quiet.goal, 0.5, same, join);
+    expect(calls).toEqual([
+      'stroke #e1e6df 0.75',
+      'fill #bf3a12 evenodd',
+      'stroke #e1e6df 0.75',
+      'fill #bf3a12 evenodd',
+    ]);
+  });
+
+  it('paints the quiet ground in one stroke of the brush, however many marks it has', () => {
+    const { brush, calls } = recorder();
+    paintOutcome(
+      brush,
+      Array.from({ length: 2000 }, (_, i) => mark(i, 'saved')),
+      quiet.saved,
+      1,
+      same,
+      join,
+    );
+    expect(calls).toEqual(['stroke #5a7080 1.25']);
   });
 
   it('draws nothing for no marks, not even an empty stroke', () => {

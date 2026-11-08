@@ -11,6 +11,8 @@ interface OutcomeFilterProps {
   onToggle: (outcome: Outcome) => void;
   /** What the note under the chips says, when the map is not a map of marks. */
   note?: string | undefined;
+  /** On a quiet map, pointing at a chip brings that outcome's colour back on the map. */
+  onPreview?: ((outcome: Outcome | null) => void) | undefined;
 }
 
 /** The legend, and the filter: each outcome is a toggle showing its own mark and a count. */
@@ -19,6 +21,7 @@ export const OutcomeFilter = memo(function OutcomeFilter({
   hidden,
   onToggle,
   note,
+  onPreview,
 }: OutcomeFilterProps) {
   return (
     <div class="legend">
@@ -31,6 +34,10 @@ export const OutcomeFilter = memo(function OutcomeFilter({
             aria-pressed={!hidden.has(outcome)}
             disabled={counts[outcome] === 0}
             onClick={() => onToggle(outcome)}
+            onPointerEnter={(e) => {
+              if (e.pointerType === 'mouse') onPreview?.(outcome);
+            }}
+            onPointerLeave={() => onPreview?.(null)}
           >
             <svg
               class="chip-mark"

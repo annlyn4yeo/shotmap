@@ -224,6 +224,11 @@
 }
 
 /* The map in words, under the key and the chips: a paragraph of its own, set to the left to be read. */
+.player-zones {
+  max-width: 40rem;
+  margin: var(--space-5) auto 0;
+}
+
 .player-summary {
   margin-top: var(--space-3);
   text-align: left;
