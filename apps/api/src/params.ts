@@ -133,7 +133,7 @@ export function playerShotsQuery(pairs: readonly [string, string][]): {
 }
 
 /** The bin sizes density may be asked for, and the one it uses when not asked. */
-export const DENSITY_STEP_DEFAULT = 2;
+const DENSITY_STEP_DEFAULT = 2;
 
 /**
  * /v1/players/:id/density: the same filters, and the size of a bin. Only the sizes the contract

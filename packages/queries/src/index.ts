@@ -1,8 +1,6 @@
 export type { Db, Row, Statement, Value } from './db';
-export { num, orNull, str } from './db';
 export {
   BadCursor,
-  TooManyRows,
   exportCompare,
   exportCompetitions,
   exportDensity,

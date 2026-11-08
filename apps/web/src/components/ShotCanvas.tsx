@@ -52,13 +52,7 @@ function timings(name: string, ms: number): void {
  * crosses (which are only strokes) over them, and goals last of all, as in the SVG layer; within
  * one outcome the big marks go first and the small ones on top.
  */
-export const LAYER_ORDER: readonly Outcome[] = [
-  'blocked',
-  'saved',
-  'post',
-  'off',
-  'goal',
-];
+const LAYER_ORDER: readonly Outcome[] = ['blocked', 'saved', 'post', 'off', 'goal'];
 
 const sameMarks = (a: readonly MapShot[] | undefined, b: readonly MapShot[]): boolean =>
   a !== undefined && a.length === b.length && a.every((m, i) => m === b[i]);

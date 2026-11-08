@@ -21,12 +21,12 @@ import { releaseDateOf } from './release.config';
 import type { MatchRecord } from './rich';
 
 /** Search term kinds, in `search_terms.kind`. */
-export const TERM_KIND = { player: 1, team: 2, match: 3 } as const;
+const TERM_KIND = { player: 1, team: 2, match: 3 } as const;
 
 /** outcome_group is the position in OUTCOMES (goal 0, saved 1, off 2, blocked 3, post 4), so goals are a SUM. */
-export const outcomeGroupId = (group: Outcome): number => OUTCOMES.indexOf(group);
+const outcomeGroupId = (group: Outcome): number => OUTCOMES.indexOf(group);
 
-export const DDL = `
+const DDL = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID;
 
 CREATE TABLE competitions (

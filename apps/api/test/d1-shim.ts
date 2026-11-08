@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 /** The database `pnpm data` writes. */
-export const DB_PATH = resolve(
+const DB_PATH = resolve(
   import.meta.dirname,
   '..',
   '..',

@@ -19,13 +19,9 @@ export const PROXY_PAGE = 10;
  * The slice of a long list to keep in the page: `radius` either side of item `at`, and a full
  * window (2 * radius + 1 items) when the list is that long, even beside either end of it.
  */
-export function windowAround(
-  count: number,
-  at: number,
-  radius = PROXY_RADIUS,
-): { start: number; end: number } {
-  const size = 2 * radius + 1;
-  const start = Math.max(0, Math.min(at - radius, count - size));
+export function windowAround(count: number, at: number): { start: number; end: number } {
+  const size = 2 * PROXY_RADIUS + 1;
+  const start = Math.max(0, Math.min(at - PROXY_RADIUS, count - size));
   return { start, end: Math.min(count, start + size) };
 }
 

@@ -29,27 +29,21 @@ export function createStore<S extends object>(initial: S): Store<S> {
   };
 }
 
-/** Read a slice of the store. Re-renders only when the selected value changes (Object.is by default). */
-export function useStore<S, T>(
-  store: Store<S>,
-  select: (state: S) => T,
-  equal: (a: T, b: T) => boolean = Object.is,
-): T {
+/** Read a slice of the store. Re-renders only when the selected value changes (Object.is). */
+export function useStore<S, T>(store: Store<S>, select: (state: S) => T): T {
   const [, rerender] = useState(0);
   const latest = useRef(select(store.get()));
   const selectRef = useRef(select);
   selectRef.current = select;
-  const equalRef = useRef(equal);
-  equalRef.current = equal;
 
   const current = select(store.get());
-  if (!equal(current, latest.current)) latest.current = current;
+  if (!Object.is(current, latest.current)) latest.current = current;
 
   useEffect(
     () =>
       store.subscribe(() => {
         const next = selectRef.current(store.get());
-        if (!equalRef.current(next, latest.current)) {
+        if (!Object.is(next, latest.current)) {
           latest.current = next;
           rerender((n) => n + 1);
         }

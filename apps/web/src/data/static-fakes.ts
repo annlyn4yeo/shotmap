@@ -18,12 +18,12 @@ const final = JSON.parse(
   readFileSync(join(goldenDir(), `final-${HERO_MATCH_ID}.json`), 'utf8'),
 ) as MatchFile;
 
-export const staticMatchOf = (id: number): MatchFile => ({
+const staticMatchOf = (id: number): MatchFile => ({
   ...final,
   meta: { ...final.meta, id },
 });
 
-export const staticIndexOf = (matchIds: readonly number[]): IndexFile => ({
+const staticIndexOf = (matchIds: readonly number[]): IndexFile => ({
   v: SCHEMA_VERSION,
   hero: HERO_MATCH_ID,
   pitch: { length: 120, width: 80, goalY: [36, 44] },

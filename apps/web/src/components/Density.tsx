@@ -217,7 +217,7 @@ export function binAnchor(
 }
 
 /** Title for a square: where it is, with a capital. */
-export const binTitle = (bin: Pick<Bin, 'gx' | 'gy'>, step: number): string => {
+const binTitle = (bin: Pick<Bin, 'gx' | 'gy'>, step: number): string => {
   const text = binWhere(bin, step);
   return text.charAt(0).toUpperCase() + text.slice(1);
 };

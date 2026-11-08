@@ -17,7 +17,7 @@ const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 
 const isList = (v: unknown): v is unknown[] => Array.isArray(v);
 
 /** The columns of a single match's shots, in the order `decodeShotsStrict` reads them. */
-export const SHOT_COLUMNS = [
+const SHOT_COLUMNS = [
   'shot',
   'seq',
   'side',

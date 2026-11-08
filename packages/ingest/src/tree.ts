@@ -23,7 +23,6 @@ const WANTED =
 export async function loadTree(
   ref: string,
   cacheDir: string,
-  userAgent = 'shotmap-ingest (+https://github.com/annlyn4yeo/shotmap)',
 ): Promise<Map<string, TreeEntry>> {
   const file = join(cacheDir, 'TREE.json.gz');
   let stored: TreeFile | undefined;
@@ -39,7 +38,10 @@ export async function loadTree(
     const res = await fetch(
       `https://api.github.com/repos/statsbomb/open-data/git/trees/${ref}?recursive=1`,
       {
-        headers: { 'user-agent': userAgent, accept: 'application/vnd.github+json' },
+        headers: {
+          'user-agent': 'shotmap-ingest (+https://github.com/annlyn4yeo/shotmap)',
+          accept: 'application/vnd.github+json',
+        },
         signal: AbortSignal.timeout(60_000),
       },
     );

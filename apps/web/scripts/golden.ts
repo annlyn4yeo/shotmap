@@ -13,7 +13,7 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const DATA = join('public', 'data');
@@ -28,7 +28,7 @@ export interface Manifest {
 }
 
 /** JSON with object keys sorted at every level and no whitespace. Arrays keep their order. */
-export function canonical(value: unknown): string {
+function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value !== null && typeof value === 'object') {
     const record = value as Record<string, unknown>;
@@ -46,9 +46,9 @@ export const hashJson = (text: string): string =>
     .update(canonical(JSON.parse(text) as unknown), 'utf8')
     .digest('hex');
 
-/** The nearest ancestor of `from` that contains `name`, or undefined. */
-function findUp(name: string, from = process.cwd()): string | undefined {
-  let dir = resolve(from);
+/** The nearest ancestor of the working directory that contains `name`, or undefined. */
+function findUp(name: string): string | undefined {
+  let dir = process.cwd();
   for (;;) {
     if (existsSync(join(dir, name))) return dir;
     const parent = dirname(dir);

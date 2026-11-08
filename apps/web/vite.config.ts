@@ -125,11 +125,9 @@ export default defineConfig(({ command }) => ({
   preview: { proxy: api },
   build: {
     target: 'es2022',
-    cssCodeSplit: true,
     assetsInlineLimit: 0,
   },
   test: {
     include: ['src/**/*.test.ts'],
-    environment: 'node',
   },
 }));

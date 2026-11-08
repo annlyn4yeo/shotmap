@@ -36,11 +36,3 @@ export function rememberSearch(words: string): string[] {
   }
   return next;
 }
-
-export function forgetSearches(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to forget if nothing can be stored.
-  }
-}

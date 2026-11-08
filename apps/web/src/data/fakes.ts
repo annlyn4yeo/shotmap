@@ -44,7 +44,7 @@ export const shotsOf = (id: number): MatchShots => ({
   },
 });
 
-export function summaryOf(id: number, day: number): MatchSummary {
+function summaryOf(id: number, day: number): MatchSummary {
   const [home, away] = detailOf(id).teams;
   return {
     id,

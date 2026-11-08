@@ -23,9 +23,9 @@ export interface Spotted {
 }
 
 /** Marks this close, in yards, to a spot's first mark are on that spot. */
-export const SAME_SPOT = 0.15;
+const SAME_SPOT = 0.15;
 /** Marks this close, in yards, to a penalty spot are on it. */
-export const PENALTY_REACH = 0.3;
+const PENALTY_REACH = 0.3;
 const PENALTY_SPOTS = [
   { x: 108, y: 40 },
   { x: 12, y: 40 },

@@ -24,7 +24,7 @@ export type SeasonRow = Player['seasons'][number];
 
 /** A column of the season table. `when` is the season's place in time. */
 export type SortKey = 'when' | 'matches' | 'shots' | 'goals' | 'onTarget' | 'xg';
-export const SORT_KEYS: readonly SortKey[] = [
+const SORT_KEYS: readonly SortKey[] = [
   'when',
   'matches',
   'shots',
@@ -164,10 +164,6 @@ export const selectedSeason = (
   view: PlayerView,
 ): SeasonRow | undefined =>
   rows.find((r) => r.competition.id === view.competition && r.season.id === view.season);
-
-/** How many open-play shots the selection holds: the row's, or the career's. */
-export const shotsIn = (profile: Player, view: PlayerView): number =>
-  selectedSeason(profile.seasons, view)?.shots ?? profile.totals.shots;
 
 /** How to use the keyboard list beside a canvas, said once, in the summary. */
 export const KEYS_HINT =
