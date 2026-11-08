@@ -44,6 +44,18 @@
   will-change: opacity;
 }
 
+/*
+ * A result with its colour back: the painted canvases step back, by opacity alone, and its marks are
+ * on a canvas of their own above them. Before the hidden rule, so a hidden outcome stays hidden.
+ */
+.shot-canvases[data-lit] > .shot-canvas {
+  opacity: 0.28;
+}
+
+.shot-canvases[data-lit] > .shot-canvas--lit {
+  opacity: 1;
+}
+
 .shot-canvases > .shot-canvas[data-hidden='true'] {
   opacity: 0;
 }

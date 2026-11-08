@@ -19,7 +19,14 @@ import {
   stacksOf,
 } from '../lib/stacks';
 import type { Frame } from './frame';
-import { canvasTransform, paintOutcome, pathOf, readPalette } from './paint';
+import {
+  canvasTransform,
+  paintOutcome,
+  pathOf,
+  readLitPalette,
+  readPalette,
+  readQuietPalette,
+} from './paint';
 import {
   Emphasis,
   StackCounts,
@@ -91,7 +98,9 @@ export interface ShotCanvasProps extends ShotLayerProps {
  */
 export function ShotCanvas(props: ShotCanvasProps) {
   const { frame, shots, selectedId, onSelect, label, describedBy, announce } = props;
+  const { lit, penaltyNote } = props;
   const source = props.all ?? shots;
+  const quiet = source[0]?.quiet === true;
   // An outcome is showing when any of its marks is in `shots`: the legend hides them a kind at a time.
   const showing = useMemo(() => {
     const kinds = new Set<Outcome>();
@@ -111,8 +120,13 @@ export function ShotCanvas(props: ShotCanvasProps) {
   );
   const size = useSize(box);
   const ratio = useDevicePixelRatio();
-  const palette = useMemo(
-    () => readPalette(getComputedStyle(document.documentElement)),
+  const litCanvas = useRef<HTMLCanvasElement | null>(null);
+  const palette = useMemo(() => {
+    const style = getComputedStyle(document.documentElement);
+    return quiet ? readQuietPalette(style) : readPalette(style);
+  }, [quiet]);
+  const litPalette = useMemo(
+    () => readLitPalette(getComputedStyle(document.documentElement)),
     [],
   );
 
@@ -183,6 +197,30 @@ export function ShotCanvas(props: ShotCanvasProps) {
     paint();
   }, [source, frame, size.w, size.h, ratio, palette]);
 
+  // One outcome with its colour back: only its marks, once, on a canvas of their own above the
+  // others, which step back by opacity alone. That canvas is on the page only while a result is
+  // chosen, so a map nobody asks this of carries no sixth layer, and the rest stay as they were.
+  useLayoutEffect(() => {
+    const el = litCanvas.current;
+    if (!el || !lit || size.w === 0 || size.h === 0) return;
+    const width = Math.round(size.w * ratio);
+    const height = Math.round(size.h * ratio);
+    if (el.width !== width) el.width = width;
+    if (el.height !== height) el.height = height;
+    const ctx = el.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.setTransform(...canvasTransform(frame, width, height));
+    paintOutcome(
+      ctx,
+      drawOrder(source.filter((s) => s.outcome === lit)),
+      litPalette[lit],
+      frame.w / size.w,
+      pathOf,
+    );
+  }, [lit, source, frame, size.w, size.h, ratio, litPalette]);
+
   // One grid of every mark, in CSS pixels, whatever the legend shows: a filter changes the question
   // asked of it (which outcomes count), not the grid, so tapping a chip never builds one. It is made
   // when a pointer first needs it, or in the first idle moment after the marks or the size change,
@@ -249,8 +287,8 @@ export function ShotCanvas(props: ShotCanvasProps) {
   // opens each in turn, and each one's entry in the list says it is one of several.
   const stacks = useMemo(() => stacksOf(shots), [shots]);
   const spots = useMemo(
-    () => spotsOf(stacks, countsFrom(source.length)),
-    [stacks, source.length],
+    () => spotsOf(stacks, countsFrom(source.length), penaltyNote !== undefined),
+    [stacks, source.length, penaltyNote],
   );
   const items = useMemo(
     () =>
@@ -271,6 +309,7 @@ export function ShotCanvas(props: ShotCanvasProps) {
         class="shot-canvases"
         aria-hidden="true"
         data-focus={active !== undefined}
+        data-lit={lit ?? undefined}
       >
         {LAYER_ORDER.map((outcome) => (
           <canvas
@@ -283,6 +322,7 @@ export function ShotCanvas(props: ShotCanvasProps) {
             }}
           />
         ))}
+        {lit ? <canvas ref={litCanvas} class="shot-canvas shot-canvas--lit" /> : null}
       </div>
       <svg
         ref={overlay}
@@ -304,7 +344,12 @@ export function ShotCanvas(props: ShotCanvasProps) {
           {active ? <Trajectory active={active} /> : null}
           <Emphasis active={active} selected={selected} />
         </g>
-        <StackCounts frame={frame} spots={spots} unitPx={size.w / frame.w} />
+        <StackCounts
+          frame={frame}
+          spots={spots}
+          unitPx={size.w / frame.w}
+          penaltyNote={penaltyNote}
+        />
       </svg>
       <ShotProxy
         label={label}

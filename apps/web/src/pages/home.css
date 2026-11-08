@@ -161,6 +161,21 @@
   color: var(--ink-2);
 }
 
+/*
+ * What a plate shows, in a sentence, over the map. Three lines are kept from the start, which is
+ * what the words take in the narrowest column, so their arriving moves nothing.
+ */
+.plate-claim {
+  max-width: none;
+  min-height: calc(3 * 1.25em);
+  margin-bottom: var(--space-1);
+  font-size: var(--step-1);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
 .plate-score {
   font-size: var(--step-0);
   font-weight: var(--weight-bold);
@@ -649,6 +664,15 @@
   .sheet--matches,
   .sheet--density {
     border-top: var(--hair) solid var(--line);
+  }
+
+  /* The figures take the height the plate beside them sets, their rows sharing what is left over. */
+  .sheet--compare {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+
+  .sheet--compare > .duel {
+    height: 100%;
   }
 
   .sheet > .plate,

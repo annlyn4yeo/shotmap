@@ -1,4 +1,5 @@
 import type { ComponentChildren, Ref } from 'preact';
+import type { Outcome } from '@shotmap/schema';
 import type { Shot } from '../data/shots';
 import type { Frame } from './frame';
 import { Pitch } from './Pitch';
@@ -19,6 +20,9 @@ export interface ShotPanelProps {
   shots: readonly MapShot[];
   selectedId: number | null;
   onSelect: (id: number | null) => void;
+  /** On a quiet map: the outcome with its colour back, and the penalty spot's label. */
+  lit?: Outcome | null | undefined;
+  penaltyNote?: string | undefined;
   /**
    * What draws the marks and takes the pointer, in place of the SVG layer: the canvas for a
    * career, the density view's layer. It is given the map's own box to fill.
@@ -78,6 +82,8 @@ export function ShotPanel(props: ShotPanelProps) {
                 intro={intro}
                 label={props.label}
                 onSelect={props.onSelect}
+                lit={props.lit}
+                penaltyNote={props.penaltyNote}
               />
             )}
           </div>

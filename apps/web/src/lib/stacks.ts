@@ -14,6 +14,8 @@
  * stack is within a fraction of its own width of where the count is drawn.
  */
 
+import { isQuiet } from './geometry';
+
 export interface Spotted {
   id: number;
   x: number;
@@ -30,13 +32,16 @@ const PENALTY_SPOTS = [
 ] as const;
 
 /**
- * Below this many marks on a map every spot of two or more is labelled. A map of more (the canvas
- * tier, a career) has marks over each other everywhere, and its labels are for spots of three or
- * more: two shots a tenth of a yard apart among a thousand say nothing. A pick still goes through
- * every stack, and the card still says which of it a shot is.
+ * Below `QUIET_FROM` marks on a map every spot of two or more is labelled. A map of more (a season,
+ * a career) has marks over each other everywhere, and its labels are for spots of three or more:
+ * two shots a tenth of a yard apart among hundreds say nothing. A pick still goes through every
+ * stack, and the card still says which of it a shot is.
  */
-export const DENSE_MAP = 300;
-export const countsFrom = (marks: number): number => (marks > DENSE_MAP ? 3 : 2);
+export const countsFrom = (marks: number): number => (isQuiet(marks) ? 3 : 2);
+
+/** On one of the two penalty spots. */
+export const onPenaltySpot = (m: Pick<Spotted, 'x' | 'y'>): boolean =>
+  PENALTY_SPOTS.some((p) => Math.hypot(p.x - m.x, p.y - m.y) <= PENALTY_REACH);
 
 /**
  * The marks that share a spot with at least one other, keyed by each one's id. Every mark of a
@@ -94,11 +99,18 @@ export function stacksOf<T extends Spotted>(
   return stacks;
 }
 
-/** Each stack once, for drawing its count: those of at least `from` marks. */
+/**
+ * Each stack once, for drawing its count: those of at least `from` marks. With `penalties`, the
+ * penalty spot too however few it holds, because a map that labels it has a note to draw there.
+ */
 export const spotsOf = <T extends Spotted>(
   stacks: Map<number, readonly T[]>,
   from = 2,
-): (readonly T[])[] => [...new Set(stacks.values())].filter((s) => s.length >= from);
+  penalties = false,
+): (readonly T[])[] =>
+  [...new Set(stacks.values())].filter(
+    (s) => s.length >= from || (penalties && s[0] !== undefined && onPenaltySpot(s[0])),
+  );
 
 /**
  * What a pick on the map opens, given the mark nearest to it and the one open now. On a spot of
