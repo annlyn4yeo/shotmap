@@ -4,8 +4,6 @@
   gap: var(--space-3);
   max-width: 34rem;
   margin: var(--space-7) auto;
-  padding-top: var(--space-4);
-  border-top: var(--rule) solid var(--ink);
 }
 
 .state-title {

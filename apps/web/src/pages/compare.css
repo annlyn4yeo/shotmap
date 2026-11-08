@@ -16,7 +16,6 @@
   display: grid;
   gap: var(--space-1);
   padding-top: var(--space-4);
-  border-top: var(--rule) solid var(--ink);
 }
 
 .compare-title {
@@ -58,8 +57,6 @@
   align-content: start;
   column-gap: var(--space-4);
   row-gap: var(--space-1);
-  padding-top: var(--space-3);
-  border-top: var(--hair) solid var(--ink);
 }
 
 .slot > * {
@@ -149,7 +146,6 @@
 
 .versus-table {
   width: 100%;
-  border-top: var(--rule) solid var(--ink);
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -157,8 +153,20 @@
 .versus-table th,
 .versus-table td {
   padding: var(--space-2);
-  border-bottom: var(--hair) solid var(--line-3);
   vertical-align: baseline;
+}
+
+/*
+ * The one rule among the figures, where they change kind: the first five are totals, which favour
+ * the longer career, and the last five are rates, which do not (lib/figures.ts).
+ */
+.versus-table tbody tr:nth-child(6) > * {
+  border-top: var(--hair) solid var(--line-2);
+  padding-top: var(--space-3);
+}
+
+.versus-table tbody tr:nth-child(5) > * {
+  padding-bottom: var(--space-3);
 }
 
 /* The middle column is the figure's name; the players' columns hug it, so a row is short to read. */
@@ -168,6 +176,7 @@
 
 .versus-table thead th {
   padding-top: var(--space-3);
+  border-bottom: var(--rule) solid var(--ink);
   font-weight: var(--weight-bold);
   line-height: var(--leading-heading);
   overflow-wrap: anywhere;

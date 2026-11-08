@@ -9,7 +9,6 @@
 .browse-title {
   margin: 0;
   padding-top: var(--space-4);
-  border-top: var(--rule) solid var(--ink);
   font-size: var(--step-3);
   font-weight: var(--weight-black);
   line-height: var(--leading-heading);
@@ -117,9 +116,16 @@
   height: 4rem;
   align-content: center;
   padding: 0 var(--space-3);
-  border-bottom: var(--hair) solid var(--line-3);
   color: var(--ink);
   text-decoration: none;
+}
+
+/*
+ * A rule only where the list moves on: a new round, a new day of a group stage, a new month of a
+ * league (groupOf in lib/browse.ts). Inside the row's fixed height, so windowing is not affected.
+ */
+.browse-row[data-opens] {
+  border-top: var(--hair) solid var(--line-2);
 }
 
 .browse-row:hover {

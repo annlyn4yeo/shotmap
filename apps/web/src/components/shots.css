@@ -327,7 +327,6 @@
   gap: 0 var(--space-3);
   margin: 0;
   padding: 0;
-  border-block: var(--hair) solid var(--line-3);
   list-style: none;
 }
 
@@ -398,8 +397,12 @@
 .zones th,
 .zones td {
   padding-block: var(--space-2);
-  border-bottom: var(--hair) solid var(--line-3);
   text-align: right;
+}
+
+/* The one rule among the rows is the edge of the box: everything above it was taken inside. */
+.zones tbody tr:last-child > * {
+  border-top: var(--hair) solid var(--line-2);
 }
 
 .zones :is(th, td):first-child {

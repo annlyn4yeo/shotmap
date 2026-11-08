@@ -5,9 +5,48 @@ import {
   apiPathOf,
   browseUrl,
   formatBrowse,
+  opensGroup,
   parseBrowse,
 } from './browse';
 import { WINDOW_FROM, windowOf } from './windowing';
+
+describe('where the list draws a rule', () => {
+  const match = (date: string, stage = 3, competition = 55, season = 282) => ({
+    date,
+    stage,
+    competition,
+    season,
+  });
+
+  it('never above the first row: the list has its own', () => {
+    expect(opensGroup(undefined, match('2024-07-14'), 'Final')).toBe(false);
+  });
+
+  it('where a knockout moves to another round, and not between two games of one', () => {
+    const quarter = match('2024-07-06', 3);
+    const otherQuarter = match('2024-07-05', 3);
+    expect(opensGroup(quarter, otherQuarter, 'Quarter-finals')).toBe(false);
+    expect(opensGroup(match('2024-07-09', 4), quarter, 'Quarter-finals')).toBe(true);
+  });
+
+  it('at each new day of a group stage', () => {
+    const a = match('2024-06-20', 1);
+    expect(opensGroup(a, match('2024-06-20', 1), 'Group Stage')).toBe(false);
+    expect(opensGroup(a, match('2024-06-19', 1), 'Group Stage')).toBe(true);
+  });
+
+  it('at each new month of a league, not at each day', () => {
+    const a = match('2016-05-14', 0, 11, 27);
+    expect(opensGroup(a, match('2016-05-08', 0, 11, 27), 'Regular Season')).toBe(false);
+    expect(opensGroup(a, match('2016-04-30', 0, 11, 27), 'Regular Season')).toBe(true);
+  });
+
+  it('where the list moves to another season or competition', () => {
+    const final = match('2024-07-14', 6);
+    expect(opensGroup(final, match('2022-12-18', 6, 43, 106), 'Final')).toBe(true);
+    expect(opensGroup(final, match('2020-07-11', 6, 55, 43), 'Final')).toBe(true);
+  });
+});
 
 describe('the browse page in the URL', () => {
   it('has no query for the defaults', () => {

@@ -103,3 +103,34 @@ export function browseUrl(q: BrowseQuery, change: Partial<BrowseQuery> = {}): st
     next.season = null;
   return `/matches${formatBrowse(next)}`;
 }
+
+interface Grouped {
+  date: string;
+  competition: number;
+  season: number;
+  stage: number;
+}
+
+/**
+ * Which part of a season a match belongs to, for the rule the list draws where it moves on: a
+ * league's month, a group stage's day, a knockout's round. Months and days because a league has
+ * one stage all season and a group stage's is three weeks long, and a rule at a stage alone would
+ * leave dozens of rows without one.
+ */
+function groupOf(m: Grouped, stageName: string | undefined): string {
+  const within =
+    stageName === 'Regular Season'
+      ? m.date.slice(0, 7)
+      : stageName === 'Group Stage'
+        ? m.date
+        : '';
+  return `${m.competition}:${m.season}:${m.stage}:${within}`;
+}
+
+/** Does this row start a new part of the season? Never the first: the list's own rule is above it. */
+export const opensGroup = (
+  before: Grouped | undefined,
+  m: Grouped,
+  stageName: string | undefined,
+): boolean =>
+  before !== undefined && groupOf(before, stageName) !== groupOf(m, stageName);
