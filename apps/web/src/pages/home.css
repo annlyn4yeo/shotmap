@@ -186,8 +186,6 @@
 .home-key {
   display: grid;
   gap: var(--space-6);
-  padding-top: var(--space-5);
-  border-top: var(--rule) solid var(--ink);
 }
 
 .key-marks {
@@ -203,10 +201,6 @@
   align-items: center;
   column-gap: var(--space-4);
   padding-block: var(--space-3);
-}
-
-.key-item + .key-item {
-  border-top: var(--hair) solid var(--line-3);
 }
 
 .key-mark {
@@ -351,10 +345,6 @@
   text-align: right;
 }
 
-.duel tbody tr + tr > * {
-  border-top: var(--hair) solid var(--line-3);
-}
-
 .duel-value {
   padding-block: var(--space-2);
   font-size: var(--step-4);
@@ -388,15 +378,9 @@
   list-style: none;
 }
 
-/* Holds the five rows' height (a name, a line of seasons, the padding, a rule) while the release's description is on its way. */
+/* Holds the five rows' height (a name, a line of seasons, the padding) while the release's description is on its way. */
 .comps[aria-busy] {
-  min-height: calc(
-    5 * (var(--step-1) * 1.2 + var(--step--1) * 1.5 + var(--space-4)) + 4px
-  );
-}
-
-.comps li + li {
-  border-top: var(--hair) solid var(--line-3);
+  min-height: calc(5 * (var(--step-1) * 1.2 + var(--step--1) * 1.5 + var(--space-4)));
 }
 
 .comp {
@@ -510,8 +494,6 @@
 .count {
   display: grid;
   gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: var(--hair) solid var(--line);
 }
 
 .count > dt {
@@ -606,13 +588,11 @@
     column-gap: var(--space-4);
   }
 
-  .key-item,
-  .key-item + .key-item {
+  .key-item {
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
     row-gap: var(--space-1);
-    padding-top: var(--space-4);
-    border-top: var(--hair) solid var(--ink);
+    padding-top: 0;
   }
 
   .key-mark {

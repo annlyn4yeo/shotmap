@@ -22,7 +22,6 @@
   display: grid;
   gap: var(--space-1);
   padding-top: var(--space-4);
-  border-top: var(--rule) solid var(--ink);
 }
 
 .player-name {
@@ -69,24 +68,41 @@
   line-height: var(--leading-heading);
 }
 
-/* The table of seasons: figures in tabular numerals, right-aligned, under a heavy rule. */
+/* The table of seasons: figures in tabular numerals, right-aligned. */
 .seasons-scroll {
   overflow-x: auto;
-  border-top: var(--rule) solid var(--ink);
 }
 
 .seasons-table {
   width: 100%;
-  border-collapse: collapse;
+  /* Not collapse: a collapsed border is shared, and the sticky column's background hid half of it. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--step--1);
 }
 
 .seasons-table th,
 .seasons-table td {
   padding: 0 var(--space-2);
-  border-bottom: var(--hair) solid var(--line-3);
   text-align: left;
   white-space: nowrap;
+}
+
+.seasons-table thead th {
+  border-bottom: var(--rule) solid var(--ink);
+}
+
+/* With no rule between them, space keeps two rows apart where a phone wraps a season's name. */
+.seasons-table tbody > tr > * {
+  padding-block: var(--space-1);
+}
+
+/*
+ * A ledger's guide every fifth row, as statistical tables have always set them: enough to carry the
+ * eye across to the figures and keep its place, whichever way the table is sorted.
+ */
+.seasons-table tbody tr:nth-child(5n):not(:last-child) > * {
+  border-bottom: var(--hair) solid var(--line-3);
 }
 
 .seasons-table th[data-num='true'],

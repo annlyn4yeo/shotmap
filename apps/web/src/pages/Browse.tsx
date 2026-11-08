@@ -5,6 +5,7 @@ import {
   PAGE_SIZES,
   apiPathOf,
   browseUrl,
+  opensGroup,
   parseBrowse,
   type BrowseQuery,
 } from '../lib/browse';
@@ -264,7 +265,14 @@ export default function Browse() {
         >
           {items.slice(rows.start, rows.end).map((m, i) => (
             <li key={m.id} aria-posinset={rows.start + i + 1} aria-setsize={items.length}>
-              <a class="browse-row" href={`/match/${m.id}`}>
+              <a
+                class="browse-row"
+                href={`/match/${m.id}`}
+                data-opens={
+                  opensGroup(items[rows.start + i - 1], m, stages.get(m.stage)) ||
+                  undefined
+                }
+              >
                 <span class="browse-teams">
                   {m.home.name} v {m.away.name}
                 </span>
