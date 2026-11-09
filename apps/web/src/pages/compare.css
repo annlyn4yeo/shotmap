@@ -144,6 +144,11 @@
   font-weight: var(--weight-semibold);
 }
 
+.versus-uneven {
+  max-width: 62ch;
+  color: var(--ink-2);
+}
+
 .versus-table {
   width: 100%;
   border-collapse: collapse;

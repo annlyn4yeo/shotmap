@@ -23,7 +23,13 @@ import {
   sharedMax,
   type Bin,
 } from '../lib/density';
-import { figuresFor, sharedSeasons, statLines, type Scope } from '../lib/figures';
+import {
+  figuresFor,
+  rankable,
+  sharedSeasons,
+  statLines,
+  type Scope,
+} from '../lib/figures';
 import { KEYS_HINT } from '../lib/player';
 import { useStore } from '../lib/store';
 import { claimArrival, navigate, openPlayerPicker, store } from '../state/app';
@@ -174,6 +180,7 @@ export default function ComparePage() {
   const fa = pa && figuresFor(pa, scope);
   const fb = pb && figuresFor(pb, scope);
   const lines = fa && fb ? statLines(fa, fb) : null;
+  const ranks = fa && fb ? rankable(fa, fb) : 'all';
   const chosen = shared.find(
     (r) => r.competition.id === view.competition && r.season.id === view.season,
   );
@@ -257,6 +264,15 @@ export default function ComparePage() {
                     compared.
                   </p>
                 )}
+                {ranks !== 'all' ? (
+                  <p class="map-note versus-uneven">
+                    The open data holds {fa?.matches} of {pa.name}&rsquo;s matches here
+                    and {fb?.matches} of {pb.name}&rsquo;s, so{' '}
+                    {ranks === 'rates'
+                      ? 'only the rates are ranked.'
+                      : 'nothing is ranked.'}
+                  </p>
+                ) : null}
                 <table class="versus-table">
                   <caption class="visually-hidden">
                     Open-play shots, {chosen ? seasonName(chosen) : 'every season'}:{' '}

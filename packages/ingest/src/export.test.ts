@@ -257,6 +257,16 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
     }
   });
 
+  it('counts the matches a player appeared in, not only those they shot in', async () => {
+    const BUSQUETS = 5203;
+    const season = { competition: 11, season: 4 };
+    const row = PlayerSchema.parse(await exportPlayer(db, BUSQUETS)).seasons.find(
+      (s) => s.competition.id === season.competition && s.season.id === season.season,
+    );
+    expect(row?.matches).toBe(33);
+    expect(new Set((await shotsOf(BUSQUETS, season)).cols.match).size).toBe(6);
+  });
+
   it("keeps a player's seasons in step with the same filter on their shots", async () => {
     const messi = PlayerSchema.parse(await exportPlayer(db, MESSI));
     for (const s of messi.seasons) {
@@ -266,7 +276,7 @@ describe.skipIf(!haveDb)('the /v1 answers', () => {
         period: 'open',
       });
       expect(rows.n, s.season.name).toBe(s.shots);
-      expect(new Set(rows.cols.match).size).toBe(s.matches);
+      expect(new Set(rows.cols.match).size).toBeLessThanOrEqual(s.matches);
     }
   });
 

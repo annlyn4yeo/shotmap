@@ -36,6 +36,8 @@ export interface StatRow {
   signed?: boolean;
   /** A bigger figure is the better one. False for a figure that is neither better nor worse. */
   ranked: boolean;
+  /** Per match or per shot, so it does not simply grow with the matches in the data. */
+  rate?: boolean;
   /** The figure, or null when it cannot be worked out (a rate over no shots). */
   of: (f: Figures) => number | null;
 }
@@ -60,6 +62,7 @@ export const STAT_ROWS: readonly StatRow[] = [
     label: 'Shots per match',
     decimals: 1,
     ranked: true,
+    rate: true,
     of: (f) => per(f.shots, f.matches),
   },
   {
@@ -67,6 +70,7 @@ export const STAT_ROWS: readonly StatRow[] = [
     label: 'Goals per match',
     decimals: 2,
     ranked: true,
+    rate: true,
     of: (f) => per(f.goals, f.matches),
   },
   {
@@ -75,6 +79,7 @@ export const STAT_ROWS: readonly StatRow[] = [
     decimals: 1,
     suffix: '%',
     ranked: true,
+    rate: true,
     of: (f) => per(100 * f.goals, f.shots),
   },
   {
@@ -82,6 +87,7 @@ export const STAT_ROWS: readonly StatRow[] = [
     label: 'xG per shot',
     decimals: 2,
     ranked: true,
+    rate: true,
     of: (f) => per(f.xg, f.shots),
   },
   {
@@ -125,17 +131,34 @@ export interface StatLine {
   lead: Lead;
 }
 
+/** Under this many matches a rate says little: two Clásicos are not a season. */
+const FEWEST_TO_RANK = 5;
+
+/**
+ * What the two sides' match counts allow to be ranked. The open data holds whole seasons of some
+ * teams and a couple of matches of others, so one player can have 36 matches here and the other 2.
+ * Past twice as many, totals only say whose matches are in the data; with very few, rates say
+ * little too.
+ */
+export function rankable(a: Figures, b: Figures): 'all' | 'rates' | 'none' {
+  const fewer = Math.min(a.matches, b.matches);
+  if (fewer * 2 >= Math.max(a.matches, b.matches)) return 'all';
+  return fewer < FEWEST_TO_RANK ? 'none' : 'rates';
+}
+
 /** Every row of the table for two players' figures. */
 export function statLines(a: Figures, b: Figures): StatLine[] {
+  const ranks = rankable(a, b);
   return STAT_ROWS.map((row) => {
     const left = row.of(a);
     const right = row.of(b);
+    const ranked = ranks === 'all' || (ranks === 'rates' && row.rate === true);
     return {
       key: row.key,
       label: row.label,
       a: left === null ? null : printed(row, left),
       b: right === null ? null : printed(row, right),
-      lead: leader(row, left, right),
+      lead: ranked ? leader(row, left, right) : null,
     };
   });
 }

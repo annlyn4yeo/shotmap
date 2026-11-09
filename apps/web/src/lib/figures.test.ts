@@ -5,6 +5,7 @@ import {
   figuresFor,
   leader,
   printed,
+  rankable,
   sharedSeasons,
   statLines,
   type StatRow,
@@ -75,6 +76,45 @@ describe('how a figure is printed', () => {
   it('has no minus on a figure that rounds to zero', () => {
     expect(printed(row('finishing'), -0.004)).toBe('+0.00');
     expect(printed(row('finishing'), 0)).toBe('+0.00');
+  });
+});
+
+describe('what uneven data allows to be ranked', () => {
+  const figures = (matches: number) => ({
+    matches,
+    shots: matches * 5,
+    goals: matches,
+    onTarget: matches * 2,
+    xg: matches * 0.5,
+  });
+
+  it('ranks everything when the samples are close', () => {
+    expect(rankable(figures(38), figures(36))).toBe('all');
+    expect(rankable(figures(7), figures(5))).toBe('all');
+    expect(rankable(figures(2), figures(1))).toBe('all');
+  });
+
+  it('ranks only rates when one side has far more matches, and enough on both', () => {
+    expect(rankable(figures(254), figures(63))).toBe('rates');
+    const lines = statLines(
+      { matches: 254, shots: 1297, goals: 239, onTarget: 612, xg: 166 },
+      { matches: 63, shots: 348, goals: 50, onTarget: 145, xg: 50 },
+    );
+    const byKey = new Map(lines.map((l) => [l.key, l.lead]));
+    expect(byKey.get('shots')).toBeNull();
+    expect(byKey.get('goals')).toBeNull();
+    expect(byKey.get('finishing')).toBeNull();
+    expect(byKey.get('shotsPerMatch')).toBe('b');
+    expect(byKey.get('goalsPerShot')).toBe('a');
+  });
+
+  it('ranks nothing when one side has only a handful of matches', () => {
+    expect(rankable(figures(36), figures(2))).toBe('none');
+    const lines = statLines(
+      { matches: 36, shots: 205, goals: 36, onTarget: 90, xg: 30 },
+      { matches: 2, shots: 11, goals: 1, onTarget: 4, xg: 2 },
+    );
+    expect(lines.filter((l) => l.lead !== null)).toEqual([]);
   });
 });
 

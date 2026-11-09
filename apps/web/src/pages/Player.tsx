@@ -314,6 +314,10 @@ function SeasonTable({ player, view }: { player: Player; view: PlayerView }) {
           </tfoot>
         </table>
       </div>
+      <p class="map-note seasons-note">
+        What the open data holds, not a whole career. In most La Liga seasons that is
+        Barcelona&rsquo;s matches, and only the games against them for anyone else.
+      </p>
     </section>
   );
 }
