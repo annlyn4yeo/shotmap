@@ -10,8 +10,6 @@
   /* Not `auto`: a column that sizes to its content would take the table's width, not scroll it. */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
-  max-width: 62rem;
-  margin-inline: auto;
 }
 
 .player-wait {
@@ -266,8 +264,24 @@
     container-type: normal;
   }
 
+  /* On the edge the page's other parts stand on: 7 px is the neatline, drawn outside the map. */
   .player-panel .map-frame {
     width: min(100% - 14px, (100dvh - 7rem) * var(--ratio));
-    margin-inline: auto;
+    margin-inline: 7px auto;
+  }
+
+  .player-panel .legend,
+  .player-panel .chips {
+    justify-content: flex-start;
+  }
+
+  .player-panel .legend-note {
+    text-align: left;
+  }
+
+  /* As wide as the table of seasons above it, whose figures it reads like. */
+  .player-zones {
+    max-width: none;
+    margin-inline: 0;
   }
 }

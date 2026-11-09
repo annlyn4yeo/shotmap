@@ -5,6 +5,8 @@
 }
 
 html {
+  /* The match page fits the window and the others scroll: without this the header jumps between them. */
+  scrollbar-gutter: stable;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
