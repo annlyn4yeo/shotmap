@@ -12,18 +12,11 @@ const LINKS: readonly { page: Page['name']; href: string; label: string }[] = [
  * The header of every page (DESIGN.md section 12): the top margin of the sheet, on the paper.
  * The wordmark goes home, two links go to the pages that have no other way in, and the search is
  * shaped as the field it opens. A double rule closes it, as the neatline frames a plate, and the
- * rule thickens under the page you are on. On the match page the scoreboard follows straight on,
- * so there it is `plain`, without the rule.
+ * rule thickens under the page you are on.
  */
-export function SiteHeader({
-  current,
-  plain,
-}: {
-  current: Page['name'];
-  plain?: boolean;
-}) {
+export function SiteHeader({ current }: { current: Page['name'] }) {
   return (
-    <header class="site-header" data-plain={plain || undefined}>
+    <header class="site-header">
       <div class="site-header-inner">
         <a
           class="home-link"

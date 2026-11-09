@@ -27,7 +27,6 @@
 
   /* Text and marks on the --ink scoreboard band */
   --on-ink-2: #a5b4b9;
-  --accent-on-ink: #ff7a4d;
 
   /* Shot outcomes. Colour is the second channel; shape is the first (see DESIGN.md). */
   --goal: var(--accent);

@@ -8,8 +8,6 @@
   /* Not `auto`: a column that sizes to its content would take the table's width, not hold it. */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
-  max-width: 62rem;
-  margin-inline: auto;
 }
 
 .compare-head {

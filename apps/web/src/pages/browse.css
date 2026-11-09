@@ -1,21 +1,200 @@
-/* The browse page: a form of filters over a ruled list, in the same paper, rules and type as the map. */
+/*
+ * The browse page (DESIGN.md section 14): the word and its count at display size, an index band of
+ * the competitions, a ruler of seasons, the finer filters a tier below, then a fixture list. In the
+ * header's column, so the page starts under the wordmark.
+ */
 .browse {
   display: grid;
+  /* Not `auto`: a column that sizes to its content would take the seasons' width, not scroll them. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
-  max-width: 62rem;
-  margin-inline: auto;
+}
+
+.browse-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-top: var(--space-3);
 }
 
 .browse-title {
-  margin: 0;
-  padding-top: var(--space-4);
-  font-size: var(--step-3);
+  /* At this size the M's side bearing shows: this stands its stem on the column's edge. */
+  margin: 0 0 0 -0.05em;
+  font-size: min(var(--step-6), 21.5vw);
   font-weight: var(--weight-black);
-  line-height: var(--leading-heading);
+  line-height: var(--leading-display);
+  letter-spacing: -0.035em;
 }
 
 .browse-title:focus-visible {
   outline-offset: 4px;
+}
+
+/* On a phone the band's own figures are enough: there is no room beside the word. */
+.browse-tally {
+  display: none;
+  flex: none;
+  justify-items: end;
+  gap: var(--space-1);
+  margin: 0;
+  max-width: none;
+}
+
+.browse-tally-value {
+  font-size: var(--step-5);
+  font-weight: var(--weight-black);
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+/*
+ * The competitions: an index band, a rule round it and between its cells (the ink behind a gap of
+ * the rule's width), the chosen one filled, as the match page's team switch fills its choice. Named
+ * for a view transition, so the fill travels to the next choice.
+ */
+.browse-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rule);
+  border: var(--rule) solid var(--ink);
+  background: var(--ink);
+}
+
+.browse-tab {
+  display: grid;
+  align-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 4.25rem;
+  padding: var(--space-2);
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease;
+}
+
+/* An odd number of cells leaves no hole of ink at the end. */
+.browse-tab:nth-child(odd):last-child {
+  grid-column: 1 / -1;
+}
+
+.browse-tab-name {
+  font-size: var(--step-0);
+  font-weight: var(--weight-bold);
+  line-height: 1.15;
+  letter-spacing: var(--track-tight);
+}
+
+.browse-tab-count {
+  min-height: 1.5em;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  font-weight: var(--weight-medium);
+  line-height: 1.5;
+}
+
+.browse-tab[aria-current] {
+  background: var(--ink);
+  color: var(--paper);
+  view-transition-name: browse-tab;
+}
+
+.browse-tab[aria-current] .browse-tab-count {
+  color: inherit;
+}
+
+a.browse-tab:not([aria-current]):active {
+  background: var(--paper-2);
+}
+
+a.browse-tab:focus-visible {
+  outline-offset: -4px;
+}
+
+a.browse-tab[aria-current]:focus-visible {
+  outline-color: var(--paper);
+}
+
+::view-transition-group(browse-tab),
+::view-transition-group(browse-season) {
+  animation-duration: 240ms;
+  animation-timing-function: var(--ease-out);
+}
+
+/* The seasons: a ruler, one line whatever the width, the chosen one barred as the header bars its page. */
+.browse-seasons {
+  display: flex;
+  gap: var(--space-5);
+  min-height: 2.75rem;
+  margin-top: calc(-1 * var(--space-2));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.browse-season {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5em;
+  min-height: 2.75rem;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition: color var(--dur-fast) ease;
+}
+
+.browse-season:focus-visible {
+  outline-offset: -2px;
+}
+
+.browse-season-count {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  font-weight: var(--weight-medium);
+}
+
+.browse-season[aria-current] {
+  color: var(--ink);
+}
+
+.browse-season[aria-current]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--ink);
+  view-transition-name: browse-season;
+}
+
+/* The finer filters */
+.browse-more {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: var(--hair) solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+  transform: scale(1);
+}
+
+.browse-more:active {
+  transform: scale(0.98);
 }
 
 .browse-filters {
@@ -24,17 +203,25 @@
   gap: var(--space-3);
 }
 
+.browse-filters[data-open='false'] {
+  display: none;
+}
+
 .browse-field {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
+.browse-field--stage {
+  grid-column: 1 / -1;
+}
+
 .browse-input {
   width: 100%;
   min-height: 2.75rem;
   padding: 0 var(--space-3);
-  border: var(--hair) solid var(--ink);
+  border: var(--hair) solid var(--line);
   border-radius: 0;
   background: var(--paper);
   color: var(--ink);
@@ -43,15 +230,15 @@
   font-weight: var(--weight-semibold);
 }
 
-.browse-input:disabled {
-  border-color: var(--line-2);
-  color: var(--ink-3);
-}
-
 /* The footer waits for the first rows: see Browse.tsx. */
 /* display, not visibility: a thing that comes into being is not a thing that moved. */
 :root[data-busy] .credit {
   display: none;
+}
+
+.browse-status {
+  display: grid;
+  gap: var(--space-2);
 }
 
 .browse-bar {
@@ -75,17 +262,19 @@
   min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
-  padding: 0 var(--space-3);
-  border: var(--hair) solid var(--ink);
   color: var(--ink);
   font-size: var(--step--1);
   font-weight: var(--weight-bold);
+}
+
+.browse-chip {
+  gap: 0.4em;
+  padding: 0 var(--space-3);
+  border: var(--hair) solid var(--ink);
   text-decoration: none;
 }
 
 .browse-clear {
-  border-color: transparent;
-  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -107,7 +296,9 @@
   opacity: 0.55;
 }
 
+/* The hover's paper reaches past the column, into the gutter; the words stay on the column's edge. */
 .browse-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px var(--space-4);
@@ -115,6 +306,7 @@
   box-sizing: border-box;
   height: 4rem;
   align-content: center;
+  margin-inline: calc(-1 * var(--space-3));
   padding: 0 var(--space-3);
   color: var(--ink);
   text-decoration: none;
@@ -124,7 +316,11 @@
  * A rule only where the list moves on: a new round, a new day of a group stage, a new month of a
  * league (groupOf in lib/browse.ts). Inside the row's fixed height, so windowing is not affected.
  */
-.browse-row[data-opens] {
+.browse-row[data-opens]::before {
+  content: '';
+  position: absolute;
+  inset-inline: var(--space-3);
+  top: 0;
   border-top: var(--hair) solid var(--line-2);
 }
 
@@ -179,14 +375,166 @@
   transform: scale(0.97);
 }
 
-@media (min-width: 40rem) {
-  .browse-filters {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (hover: hover) and (pointer: fine) {
+  a.browse-tab:not([aria-current]):hover {
+    background: var(--paper-2);
+  }
+
+  .browse-season:hover {
+    color: var(--ink);
+  }
+
+  .browse-input:hover,
+  .browse-input:focus {
+    border-color: var(--ink);
   }
 }
 
+/* Very narrow: the longest name wraps here too, so the same is held. */
+@media (max-width: 22.5rem) {
+  .browse-tab {
+    min-height: calc(
+      2 * 1.15 * var(--step-0) + 1.5 * var(--step--2) + 2 * var(--space-2) +
+        var(--space-1)
+    );
+  }
+}
+
+@media (min-width: 40rem) {
+  .browse-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .browse-tab:nth-child(odd):last-child {
+    grid-column: auto;
+  }
+}
+
+/* Wide: the word and its count at either edge, and every filter on show, in one line. */
+@media (min-width: 52rem) {
+  .browse-tally {
+    display: grid;
+  }
+
+  .browse-more {
+    display: none;
+  }
+
+  .browse-filters,
+  .browse-filters[data-open='false'] {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .browse-field--stage {
+    grid-column: auto;
+  }
+
+  .browse-status {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+}
+
+/* The band in one line, and the filters on its columns, the stage under its first two. */
 @media (min-width: 60rem) {
-  .browse-filters {
+  .browse-tabs {
+    grid-template-columns: repeat(var(--cells), minmax(0, 1fr));
+  }
+
+  /* Two lines of name are held from the start: the longest wraps, and its arriving must move nothing. */
+  .browse-tab {
+    min-height: calc(
+      2 * 1.15 * var(--step-1) + 1.5 * var(--step--2) + 2 * var(--space-3) +
+        var(--space-1)
+    );
+    padding: var(--space-3);
+  }
+
+  .browse-tab-name {
+    font-size: var(--step-1);
+  }
+
+  .browse-filters,
+  .browse-filters[data-open='false'] {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .browse-field--stage {
+    grid-column: span 2;
+  }
+}
+
+/*
+ * Wide enough for a fixture list: the date, the home side pushed up against the score, the away side
+ * pushed up against it from the other side, then the stage. The eye reads a line, not two far ends.
+ */
+@media (min-width: 64rem) {
+  .browse-row {
+    /* The same at both ends, so the scores run down the middle of the page. */
+    grid-template-columns: 12rem minmax(0, 1fr) 7.5rem minmax(0, 1fr) 12rem;
+    gap: 0 var(--space-4);
+    align-items: center;
+    height: 3.25rem;
+  }
+
+  .browse-teams,
+  .browse-sub {
+    display: contents;
+  }
+
+  .browse-home,
+  .browse-away,
+  .browse-stage,
+  .browse-date {
+    overflow: hidden;
+    grid-row: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .browse-date {
+    grid-column: 1;
+  }
+
+  .browse-home {
+    grid-column: 2;
+    text-align: right;
+  }
+
+  .browse-score {
+    grid-column: 3;
+    grid-row: 1;
+    font-size: var(--step-1);
+    text-align: center;
+  }
+
+  .browse-away {
+    grid-column: 4;
+  }
+
+  .browse-stage {
+    grid-column: 5;
+    text-align: right;
+  }
+
+  .browse-comma {
+    display: none;
+  }
+
+  /* Still read out between the names; the score does its work on the screen. */
+  .browse-v {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browse-more {
+    transition: none;
   }
 }

@@ -34,19 +34,6 @@
   pointer-events: none;
 }
 
-/* On the match page the scoreboard's ink follows at once: it is the edge. */
-.site-header[data-plain] {
-  padding-bottom: 0;
-}
-
-.site-header[data-plain] .site-header-inner {
-  border-bottom: 0;
-}
-
-.site-header[data-plain] .site-header-inner::after {
-  content: none;
-}
-
 .site-header .home-link {
   grid-area: brand;
   display: inline-flex;
@@ -97,10 +84,6 @@
 
 .site-link[aria-current='page']::after {
   transform: scaleX(1);
-}
-
-.site-header[data-plain] .site-link::after {
-  content: none;
 }
 
 /* The search, shaped as the field it opens. */

@@ -73,11 +73,6 @@
   list-style: none;
 }
 
-/* The match page has these same symbols as its filter, directly above. */
-.app:not([data-flow]) .credit-key {
-  display: none;
-}
-
 .credit-symbol {
   display: inline-flex;
   align-items: center;

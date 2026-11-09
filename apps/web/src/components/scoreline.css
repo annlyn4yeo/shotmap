@@ -1,25 +1,31 @@
 /*
- * The scoreboard: an ink band under the header (SiteHeader), like a map's title block: which match,
- * then the score. Only the match page has it.
+ * The scoreboard (DESIGN.md section 12): a block of ink in the page's column, like the title block
+ * on a map: which match, then the score. On a phone two rows, name and figure; from 52rem one line,
+ * the names pushed up to a score that stands on the page's centre line, between the two maps. Only
+ * the match page has it.
  */
 .board {
-  background: var(--ink);
-  color: var(--paper);
+  --board-num: var(--step-4);
+  padding: var(--space-3) var(--gutter) 0;
 }
 
 .board-inner {
-  max-width: var(--page-max);
+  display: grid;
+  gap: var(--space-2);
+  max-width: calc(var(--page-max) - 2 * var(--gutter));
   margin-inline: auto;
-  padding: var(--space-3) var(--gutter) var(--space-4);
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .board-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
   max-width: none;
   min-height: 1.5em;
-  padding-bottom: var(--space-3);
   font-size: var(--step--1);
   color: var(--on-ink-2);
 }
@@ -30,71 +36,123 @@
 
 .board-score {
   display: grid;
-  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'home home-num'
+    'away away-num';
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
 }
 
-.board-col {
-  min-width: 0;
-}
-
-.board-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-1);
+/* While the match is on its way: the height it will take, so little moves when it comes. */
+.board-score:empty {
+  min-height: calc(2 * 1.05 * var(--board-num));
 }
 
 .board-team {
-  font-size: var(--step-3);
+  font-size: var(--step-2);
   font-weight: var(--weight-black);
-  line-height: var(--leading-heading);
-  letter-spacing: var(--track-tight);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  hyphens: auto;
+}
+
+.board-team--home {
+  grid-area: home;
+}
+
+.board-team--away {
+  grid-area: away;
 }
 
 .board-num {
-  font-size: var(--step-5);
+  font-size: var(--board-num);
   font-weight: var(--weight-black);
-  line-height: var(--leading-display);
-  letter-spacing: var(--track-tight);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-align: right;
 }
 
-.board-pens {
-  margin-left: 0.2em;
-  font-size: var(--step-1);
-  font-weight: var(--weight-semibold);
-  color: var(--on-ink-2);
+.board-num--home {
+  grid-area: home-num;
+}
+
+.board-num--away {
+  grid-area: away-num;
+}
+
+.board-sep {
+  display: none;
+  font-size: var(--board-num);
+  font-weight: var(--weight-black);
+  line-height: 1;
 }
 
 .board-sub {
-  margin-top: var(--space-1);
   max-width: none;
   font-size: var(--step--1);
   font-weight: var(--weight-semibold);
-  color: var(--on-ink-2);
 }
 
-.board-sub[data-won='true'] {
-  color: var(--accent-on-ink);
-}
-
-/* Wide: the two teams sit in the same two columns as the shot panels below. */
+/* Wide: one line round the centre of the page. */
 @media (min-width: 52rem) {
-  .board-score {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--space-7);
+  .board {
+    --board-num: min(var(--step-5), 10vh);
   }
 
-  /* Big, but never so big that a short window loses its maps. */
+  .board-inner {
+    justify-items: center;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-5) var(--space-4);
+  }
+
+  .board-meta {
+    justify-content: center;
+  }
+
+  .board-score {
+    justify-self: stretch;
+    grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+    grid-template-areas: 'home home-num sep away-num away';
+    column-gap: var(--space-3);
+  }
+
+  .board-score:empty {
+    min-height: var(--board-num);
+  }
+
   .board-team {
-    font-size: min(var(--step-4), 6vh);
+    font-size: min(var(--step-3), 6vh);
+    line-height: 1;
+    text-wrap: balance;
+  }
+
+  .board-team--home {
+    margin-right: var(--space-4);
+    text-align: right;
+  }
+
+  .board-team--away {
+    margin-left: var(--space-4);
   }
 
   .board-num {
-    font-size: min(var(--step-6), 11vh);
+    line-height: 1;
   }
 
-  .board-pens {
-    font-size: var(--step-2);
+  .board-sep {
+    display: block;
+    grid-area: sep;
+    color: var(--on-ink-2);
+  }
+}
+
+@media (min-width: 80rem) {
+  .board {
+    --board-num: min(var(--step-6), 10vh);
+  }
+
+  .board-team {
+    font-size: min(var(--step-4), 6vh);
   }
 }

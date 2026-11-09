@@ -25,7 +25,6 @@ const rules = [
   ['ink-3', papers, 4.5, 'captions, labels (AA)'],
   ['paper', ['ink'], 7, 'text on the ink scoreboard (AAA)'],
   ['on-ink-2', ['ink'], 4.5, 'secondary text on the scoreboard (AA)'],
-  ['accent-on-ink', ['ink'], 4.5, 'accent text and goal mark on the scoreboard (AA)'],
   ['line', ['paper', 'paper-2'], 3, 'boundaries, pitch lines (non-text)'],
   ['accent', ['paper'], 4.5, 'accent text, goal mark (AA)'],
   ['accent', ['paper-2', 'paper-3'], 3, 'accent marks (non-text)'],
