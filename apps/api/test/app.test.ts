@@ -583,6 +583,16 @@ describe.skipIf(!haveDb)('the Worker', () => {
   });
 
   describe('release pinning, ETag and the cache', () => {
+    it('keeps an answer asked for without a pin under its release', async () => {
+      await get('/v1/meta');
+      const keys = [...cache.entries.keys()];
+      expect(keys).toHaveLength(1);
+      expect(keys[0]).toContain(`r=${release}`);
+      expect((await get('/v1/meta')).headers.get('x-cache')).toBe('HIT');
+      // Asking for `r` itself is refused, so it cannot reach another release's entry.
+      expect((await get(`/v1/meta?r=${release}`)).status).toBe(400);
+    });
+
     it('makes an answer cacheable for a year when the request names the current release', async () => {
       const res = await get(`/v1/matches/${FINAL}?v=${release}`);
       expect(res.status).toBe(200);

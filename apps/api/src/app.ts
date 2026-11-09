@@ -198,7 +198,10 @@ export function createApp(options: AppOptions = {}) {
       if (matches(c.req.header('if-none-match'), etag))
         return json(env, 304, null, headers);
 
-      const key = new Request(url.origin + url.pathname + tail(query));
+      // Under its release, pinned or not, so a new release never serves an old answer. The allow-list refuses `r`.
+      const key = new Request(
+        url.origin + url.pathname + tail(pin ? query : [...query, ['r', release]]),
+      );
       const hit = await options.cache?.match(key);
       if (hit) {
         const copy = new Response(hit.body, hit);

@@ -17,9 +17,12 @@ import { DatabaseSync } from 'node:sqlite';
 export const MAX_STATEMENT_BYTES = 90_000;
 export const MAX_ROWS_PER_INSERT = 100;
 
-/** Parents before children, so foreign keys hold as the rows arrive. */
+/**
+ * Parents before children, so foreign keys hold as the rows arrive. `meta` names the release, so it
+ * goes last: a Worker reading the database during a load must not see the new name over part of its
+ * rows, which a pinned request would then cache for a year.
+ */
 export const TABLE_ORDER = [
-  'meta',
   'competitions',
   'seasons',
   'stages',
@@ -29,6 +32,7 @@ export const TABLE_ORDER = [
   'match_players',
   'shots',
   'search_terms',
+  'meta',
 ] as const;
 
 export function sqlLiteral(value: unknown): string {

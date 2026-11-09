@@ -184,7 +184,17 @@ function plan(m, paid) {
   return true;
 }
 
+/** ingest archives a release even when its checks failed, and says so only in its manifest. */
+function refuseFailed(m) {
+  const failed = m.checks.filter((c) => c.problems > 0);
+  if (failed.length)
+    fail(
+      `${m.release} failed its checks, so it will not be loaded: ${failed.map((c) => c.name).join('; ')}`,
+    );
+}
+
 async function publish(env, m, yes, paid) {
+  refuseFailed(m);
   if (!plan(m, paid))
     fail('Refusing: pass --paid only if the account is on the Workers Paid plan.');
   const dir = join(RELEASES, m.release);
@@ -241,6 +251,7 @@ async function publish(env, m, yes, paid) {
 // --local runs the same steps against wrangler dev's local D1, to try them out; there the day's
 // budget is not enforced.
 async function publishPart(env, m, { yes, paid, local, database }) {
+  refuseFailed(m);
   const target = local ? 'DB' : (database ?? env.database);
   const key = `${local ? 'local' : target}|${m.release}`;
   const all = readJson(PARTS, {});
@@ -341,7 +352,7 @@ function finishParts(env, m, target, local) {
   process.exit(ok ? 0 : 1);
 }
 
-async function rollback(env, yes) {
+async function rollback(env, yes, paid) {
   const state = readJson(STATE, {});
   const history = state[env.name] ?? [];
   const last = history.at(-1);
@@ -381,6 +392,10 @@ async function rollback(env, yes) {
     const previous = releases().find((m) => m.release === last.previous);
     if (!previous)
       fail(`No bookmark, and no archived release ${last.previous}: nothing to put back.`);
+    if (!plan(previous, paid))
+      fail(
+        "Refusing: reloading it would pass the day's rows written. Pass --paid only on the Workers Paid plan.",
+      );
     console.log(`Loading the previous release's dump (this writes rows again) ...`);
     const dir = join(RELEASES, previous.release);
     const file = join(dir, 'shotmap.sql');
@@ -453,7 +468,7 @@ switch (command) {
     break;
   }
   case 'rollback':
-    await rollback(environment(), flag('yes'));
+    await rollback(environment(), flag('yes'), flag('paid'));
     break;
   case 'verify': {
     const env = environment();
