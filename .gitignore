@@ -6,6 +6,7 @@ dist-stress
 lh-report*
 *.log
 *.md
+!/README.md
 .cache
 packages/ingest/out
 .wrangler
