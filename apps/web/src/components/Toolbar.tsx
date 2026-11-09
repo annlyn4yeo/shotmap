@@ -64,7 +64,7 @@ export const Toolbar = memo(function Toolbar({
       </div>
 
       <label class="field">
-        <span class="label">Player</span>
+        <span class="visually-hidden">Player</span>
         <select
           class="field-select"
           value={player === null ? '' : String(player)}
@@ -93,8 +93,7 @@ export const Toolbar = memo(function Toolbar({
           aria-pressed={shootout}
           onClick={() => update({ shootout: !shootout, shot: null }, animate)}
         >
-          <span class="switch-box" aria-hidden="true" />
-          <span>Include shootout</span>
+          Include shootout
         </button>
       ) : null}
 

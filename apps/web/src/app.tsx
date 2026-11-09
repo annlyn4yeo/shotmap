@@ -83,12 +83,12 @@ function MatchPage() {
   return (
     <div class="app">
       <div class="masthead">
-        <SiteHeader current="match" plain />
-        {/* The scoreboard: the match's title block, in ink, under the sheet's own header. */}
+        <SiteHeader current="match" />
+        {/* The scoreboard: the match's title block, in ink, in the sheet's column. */}
         <div class="board">
           <div class="board-inner">
             {board ? <MatchLine board={board} /> : <p class="board-meta" />}
-            {board ? <Scoreline board={board} /> : null}
+            {board ? <Scoreline board={board} /> : <div class="board-score" />}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import type { BoardMeta, BoardTeam } from '../data/board';
+import type { BoardMeta } from '../data/board';
 import './scoreline.css';
 
 const formatDate = (iso: string) =>
@@ -6,7 +6,7 @@ const formatDate = (iso: string) =>
     new Date(`${iso}T12:00:00Z`),
   );
 
-/** Stage, competition and date, set small beside the wordmark. */
+/** Stage, competition and date, set small over the score. */
 export function MatchLine({ board }: { board: BoardMeta }) {
   return (
     <p class="board-meta">
@@ -20,44 +20,36 @@ export function MatchLine({ board }: { board: BoardMeta }) {
 }
 
 /**
- * The scoreboard: both teams in big type, in the same two columns as the shot
- * panels below. A shootout shows in brackets and in words. The visual board is
- * hidden from assistive tech and the heading says the same thing in a sentence.
+ * The scoreboard: the two names and the score, in big type. A shootout says who
+ * won it, once, under the score. The visual board is hidden from assistive tech
+ * and the heading says the same thing in a sentence.
  */
 export function Scoreline({ board }: { board: BoardMeta }) {
   const { home, away } = board;
   const shootout = home.pens !== null && away.pens !== null;
   const winner = (home.pens ?? 0) > (away.pens ?? 0) ? home : away;
   const loser = winner === home ? away : home;
+  const penalties = `${winner.name} won ${winner.pens}-${loser.pens} on penalties`;
 
   const summary = `${home.name} ${home.score}, ${away.name} ${away.score}, ${board.competition} ${board.season} ${board.stage.toLowerCase()}${
-    shootout ? `. ${winner.name} won ${winner.pens}-${loser.pens} on penalties` : ''
+    shootout ? `. ${penalties}` : ''
   }`;
-
-  const column = (team: BoardTeam, other: BoardTeam) => (
-    <div class="board-col">
-      <div class="board-row">
-        <span class="board-team">{team.name}</span>
-        <span class="board-num num">
-          {team.score}
-          {team.pens !== null ? <span class="board-pens">({team.pens})</span> : null}
-        </span>
-      </div>
-      {shootout ? (
-        <p class="board-sub" data-won={team === winner}>
-          {team === winner ? 'Won' : 'Lost'} on penalties, {team.pens}-{other.pens}
-        </p>
-      ) : null}
-    </div>
-  );
 
   return (
     <>
       <h1 class="visually-hidden">{summary}</h1>
       <div class="board-score" aria-hidden="true">
-        {column(home, away)}
-        {column(away, home)}
+        <span class="board-team board-team--home">{home.name}</span>
+        <span class="board-num board-num--home num">{home.score}</span>
+        <span class="board-sep">-</span>
+        <span class="board-num board-num--away num">{away.score}</span>
+        <span class="board-team board-team--away">{away.name}</span>
       </div>
+      {shootout ? (
+        <p class="board-sub" aria-hidden="true">
+          {penalties}
+        </p>
+      ) : null}
     </>
   );
 }
