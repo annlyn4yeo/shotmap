@@ -23,25 +23,92 @@
   min-height: 100svh;
 }
 
+/*
+ * The sheet's bottom margin (DESIGN.md section 13): the header's double rule turned over (1 px, a
+ * 3 px gap, 1.5 px), then the wordmark, the map's symbols and the source, as a map's margin has them.
+ */
 .credit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  width: 100%;
-  max-width: var(--page-max);
-  margin-inline: auto;
-  padding: var(--space-4) var(--gutter) var(--space-5);
-  border-top: var(--hair) solid var(--line);
-  font-size: var(--step--1);
-  color: var(--ink-2);
+  --wordmark-size: var(--step-0);
+  padding-inline: var(--gutter);
 }
 
-/* Placeholder for the StatsBomb logo, required by their open-data terms. */
-.credit-logo {
+.credit-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'home source'
+    'key key';
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  max-width: calc(var(--page-max) - 2 * var(--gutter));
+  margin-inline: auto;
+  padding-block: calc(var(--space-4) + 4.5px) var(--space-5);
+  border-top: var(--hair) solid var(--ink);
+}
+
+.credit-inner::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 3px;
+  border-top: var(--rule) solid var(--ink);
+  pointer-events: none;
+}
+
+.credit-home {
+  grid-area: home;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.credit-key {
+  grid-area: key;
+  display: grid;
+  /* Three and two on a phone: five in a row do not fit, and a lone last one looks like a mistake. */
+  grid-template-columns: repeat(3, max-content);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The match page has these same symbols as its filter, directly above. */
+.app:not([data-flow]) .credit-key {
+  display: none;
+}
+
+.credit-symbol {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  color: var(--ink-3);
+}
+
+.credit-symbol svg {
   flex: none;
-  width: 7.5rem;
-  height: 2rem;
-  border: var(--hair) dashed var(--line);
+  width: 0.875rem;
+  height: 0.875rem;
+  overflow: visible;
+}
+
+.credit-symbol .shot:not(.shot--goal) {
+  stroke-width: 1.25px;
+}
+
+.credit-source {
+  grid-area: source;
+  justify-self: end;
+  max-width: none;
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  color: var(--ink-3);
+}
+
+.credit-source a {
+  color: var(--ink);
 }
 
 @media (min-width: 52rem) {
@@ -60,11 +127,15 @@
     padding-block: var(--space-4) var(--space-3);
   }
 
-  .credit {
-    padding-block: var(--space-3);
+  /* One line, so the match page's maps give up as little height as they did. */
+  .credit-inner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'home key source';
+    padding-block: calc(var(--space-3) + 4.5px) var(--space-3);
   }
 
-  .credit-logo {
-    height: 1.5rem;
+  .credit-key {
+    grid-template-columns: repeat(5, max-content);
+    justify-content: center;
   }
 }

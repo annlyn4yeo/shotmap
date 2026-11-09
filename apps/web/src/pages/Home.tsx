@@ -80,6 +80,18 @@ function useMeta(): Meta | 'error' | null {
 
 const inPlay = (shots: readonly Shot[]) => shots.filter((s) => !s.shootout);
 
+/** Opens one of the hero match's shots on the match page. */
+function useOpenShot(shots: readonly Shot[]) {
+  const roomy = useMedia(BOTH);
+  return (id: number | null) => {
+    const shot = shots.find((s) => s.id === id);
+    if (!shot) return;
+    // Wide, the match page shows both teams; narrow, the side the shot was for.
+    const team = roomy ? null : shot.team === 0 ? 'home' : 'away';
+    navigate(formatUrl({ ...DEFAULT_ROUTE, team, shot: shot.id }));
+  };
+}
+
 // The hero plate
 
 const HERO_FRAME = frameFor('full', 'horizontal');
@@ -94,7 +106,6 @@ function HeroPlate({ match }: { match: LoadedMatch }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const width = useWidth(frameRef);
   const unitPx = (width || 343) / HERO_FRAME.w;
-  const roomy = useMedia(BOTH);
   const reduced = useMedia('(prefers-reduced-motion: reduce)');
   const [intro, setIntro] = useState(true);
   useEffect(() => {
@@ -127,13 +138,7 @@ function HeroPlate({ match }: { match: LoadedMatch }) {
     [shots, unitPx, detail],
   );
 
-  const open = (id: number | null) => {
-    const shot = shots.find((s) => s.id === id);
-    if (!shot) return;
-    // Wide, the match page shows both teams; narrow, the side the shot was for.
-    const team = roomy ? null : shot.team === 0 ? 'home' : 'away';
-    navigate(formatUrl({ ...DEFAULT_ROUTE, team, shot: shot.id }));
-  };
+  const open = useOpenShot(shots);
 
   const goals = shots.filter((s) => s.outcome === 'goal').length;
   const pens = home.pens !== null && away.pens !== null;
@@ -294,59 +299,116 @@ const DUEL_ROWS: readonly DuelRow[] = [
   },
 ];
 
-/** Two players' figures in the hero match, laid out as the compare page sets them. */
-function Duel({ match, a, b }: { match: LoadedMatch; a: number; b: number }) {
-  const shots = inPlay(match.shots);
-  const name = (id: number) => match.detail.players.find((p) => p.id === id)?.name ?? '';
-  const own = (id: number) => shots.filter((s) => s.playerId === id);
-  const [left, right] = [own(a), own(b)];
-  return (
-    <table class="duel">
-      <caption class="visually-hidden">
-        {name(a)} and {name(b)} in the final. The higher figure of each pair is in bold.
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col">{name(a)}</th>
-          <td />
-          <th scope="col">{name(b)}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {DUEL_ROWS.map((row) => {
-          const [l, r] = [row.of(left), row.of(right)];
-          const [lt, rt] = [l, r].map((v) => (v === null ? '' : v.toFixed(row.decimals)));
-          // The lead is judged on the printed figures: two that read alike are never ranked.
-          const lead =
-            lt && rt && Number(lt) !== Number(rt)
-              ? Number(lt) > Number(rt)
-                ? 0
-                : 1
-              : -1;
-          return (
-            <tr key={row.label}>
-              <td class="duel-value num" data-lead={lead === 0 || undefined}>
-                {lt}
-                {lead === 0 ? <span class="visually-hidden"> (higher)</span> : null}
-              </td>
-              <th scope="row" class="duel-label">
-                {row.label}
-              </th>
-              <td class="duel-value num" data-lead={lead === 1 || undefined}>
-                {rt}
-                {lead === 1 ? <span class="visually-hidden"> (higher)</span> : null}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-}
-
 /** Must match PLATE_FROM in HomePlates.tsx: a placeholder is the same shape as its plate. */
 const PLATE_FROM = 80;
 const PLATE_FRAME = frameFor('half', 'vertical', PLATE_FROM);
+
+/** One player's shots in the hero match, on the last 40 yards. A mark opens that shot. */
+function DuelPlate({ name, own }: { name: string; own: readonly Shot[] }) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const unitPx = (useWidth(frameRef) || 160) / PLATE_FRAME.w;
+  const open = useOpenShot(own);
+  const marks: MapShot[] = useMemo(
+    () =>
+      own.map((s) => ({
+        id: s.id,
+        outcome: s.outcome,
+        xg: s.xg,
+        label: shotLabel(s),
+        x: s.x,
+        y: s.y,
+        ex: s.ex,
+        ey: s.ey,
+        r: markRadius(s.xg, unitPx),
+        delay: 0,
+      })),
+    [own, unitPx],
+  );
+  return (
+    <figure class="duel-plate">
+      <figcaption class="duel-name">{name}</figcaption>
+      <div
+        ref={frameRef}
+        class="map-frame"
+        style={`--ratio:${PLATE_FRAME.w} / ${PLATE_FRAME.h}`}
+      >
+        <div class="map">
+          <Pitch title={`${name}'s shots in the final`} from={PLATE_FROM} />
+          <ShotLayer
+            frame={PLATE_FRAME}
+            shots={marks}
+            selectedId={null}
+            intro={false}
+            label={`${name}'s shots. Choose one to open it on the match page.`}
+            onSelect={open}
+          />
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+/**
+ * Two players in the hero match: where each shot from, on a pitch of their own, and their figures
+ * under them, each pair close together so a row reads across, as the compare page sets them.
+ */
+function Duel({ match, a, b }: { match: LoadedMatch; a: number; b: number }) {
+  const name = (id: number) => match.detail.players.find((p) => p.id === id)?.name ?? '';
+  const [left, right] = useMemo(() => {
+    const shots = inPlay(match.shots);
+    return [a, b].map((id) => shots.filter((s) => s.playerId === id)) as [Shot[], Shot[]];
+  }, [match, a, b]);
+  return (
+    <div class="duel-sheet">
+      <div class="duel-plates">
+        <DuelPlate name={name(a)} own={left} />
+        <DuelPlate name={name(b)} own={right} />
+      </div>
+      <table class="duel">
+        <caption class="visually-hidden">
+          {name(a)} and {name(b)} in the final. The higher figure of each pair is in bold.
+        </caption>
+        <thead class="visually-hidden">
+          <tr>
+            <th scope="col">{name(a)}</th>
+            <td />
+            <th scope="col">{name(b)}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {DUEL_ROWS.map((row) => {
+            const [l, r] = [row.of(left), row.of(right)];
+            const [lt, rt] = [l, r].map((v) =>
+              v === null ? '' : v.toFixed(row.decimals),
+            );
+            // The lead is judged on the printed figures: two that read alike are never ranked.
+            const lead =
+              lt && rt && Number(lt) !== Number(rt)
+                ? Number(lt) > Number(rt)
+                  ? 0
+                  : 1
+                : -1;
+            return (
+              <tr key={row.label}>
+                <td class="duel-value num" data-lead={lead === 0 || undefined}>
+                  {lt}
+                  {lead === 0 ? <span class="visually-hidden"> (higher)</span> : null}
+                </td>
+                <th scope="row" class="duel-label">
+                  {row.label}
+                </th>
+                <td class="duel-value num" data-lead={lead === 1 || undefined}>
+                  {rt}
+                  {lead === 1 ? <span class="visually-hidden"> (higher)</span> : null}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 type Plates = typeof import('./HomePlates');
 
@@ -519,7 +581,8 @@ function Index({ match, meta }: { match: LoadedMatch; meta: Meta | 'error' | nul
         <article class="sheet sheet--compare">
           <h3 class="sheet-title">Two players on one sheet</h3>
           <p class="sheet-note">
-            The {final}, figure for figure. The higher of each pair is in bold.
+            Every shot they took in the {final}, then the figures. The higher of each pair
+            is in bold.
           </p>
           <Duel match={match} a={MESSI} b={MBAPPE} />
           <a

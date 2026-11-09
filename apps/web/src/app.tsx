@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { OUTCOMES } from '@shotmap/schema';
 import { MapSkeleton, ErrorState } from './components/States';
 import { Picker } from './components/Picker';
 import { ShotMap } from './components/ShotMap';
 import { MatchLine, Scoreline } from './components/Scoreline';
 import { SiteHeader } from './components/SiteHeader';
+import { Wordmark } from './components/Wordmark';
 import { LazyPage } from './components/lazy';
 import { Home } from './pages/Home';
 import { boardFromDetail, type BoardMeta } from './data/board';
 import type { LoadedMatch } from './data/match';
+import { OUTCOME_LABEL } from './lib/geometry';
 import { useDelayed } from './lib/hooks';
+import { markPath } from './lib/marks';
 import { useStore } from './lib/store';
 import { claimArrival, store } from './state/app';
 import './app.css';
@@ -16,17 +20,34 @@ import './app.css';
 /** A load shorter than this never shows a skeleton. */
 const SKELETON_AFTER_MS = 150;
 
+/**
+ * The sheet's bottom margin (DESIGN.md section 13), where a map carries its symbols and its source.
+ * The header's double rule, turned over, closes the page.
+ */
 function Credit() {
   return (
     <footer class="credit">
-      <span class="credit-logo" data-slot="statsbomb-logo" aria-hidden="true" />
-      <p>
-        Data by{' '}
-        <a href="https://statsbomb.com" rel="noopener">
-          StatsBomb
+      <div class="credit-inner">
+        <a class="credit-home" href="/" aria-label="Shotmap, home">
+          <Wordmark />
         </a>
-        .
-      </p>
+        <ul class="credit-key" aria-label="The map's symbols">
+          {OUTCOMES.map((outcome) => (
+            <li key={outcome} class="credit-symbol">
+              <svg viewBox="-5 -5 10 10" aria-hidden="true" focusable="false">
+                <path class={`shot shot--${outcome}`} d={markPath(outcome, 0, 0, 2.6)} />
+              </svg>
+              {OUTCOME_LABEL[outcome]}
+            </li>
+          ))}
+        </ul>
+        <p class="credit-source">
+          Data from{' '}
+          <a href="https://statsbomb.com" rel="noopener">
+            StatsBomb
+          </a>
+        </p>
+      </div>
     </footer>
   );
 }
