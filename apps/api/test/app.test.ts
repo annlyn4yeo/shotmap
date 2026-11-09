@@ -141,7 +141,8 @@ describe.skipIf(!haveDb)('the Worker', () => {
       const cup = messi.seasons.find((s) => s.competition.id === 43);
       const filtered = await shots(`competition=43&season=${cup?.season.id}&period=open`);
       expect(filtered.n).toBe(cup?.shots);
-      expect(new Set(filtered.cols.match).size).toBe(cup?.matches);
+      // Matches are appearances: at least as many as the matches a player shot in.
+      expect(new Set(filtered.cols.match).size).toBeLessThanOrEqual(cup?.matches ?? 0);
       const goals = await shots('period=open&outcome=goal');
       expect(goals.n).toBe(messi.totals.goals);
       const penalties = await shots('type=88');

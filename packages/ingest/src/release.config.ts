@@ -7,7 +7,7 @@
  * overnight. Cutting a release is changing this line (or the data), running the ingest, and
  * committing the fixture it prints. `RELEASE_DATE=YYYY-MM-DD` overrides it for one run.
  */
-export const releaseDate = '2026-10-31';
+export const releaseDate = '2026-11-09';
 
 export function releaseDateOf(): string {
   const date = process.env.RELEASE_DATE ?? releaseDate;

@@ -28,6 +28,7 @@ export const TABLE_ORDER = [
   'stages',
   'teams',
   'players',
+  'player_seasons',
   'matches',
   'match_players',
   'shots',

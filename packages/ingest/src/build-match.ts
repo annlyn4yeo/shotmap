@@ -63,6 +63,10 @@ export interface RawEvent {
   position?: { name: string };
   location?: number[];
   shot?: RawShot;
+  /** On a "Starting XI" event. */
+  tactics?: { lineup: { player: { id: number } }[] };
+  /** On a "Substitution" event. */
+  substitution?: { replacement: { id: number } };
 }
 export interface RawLineupTeam {
   team_id: number;
@@ -183,8 +187,11 @@ export function buildMatch(
   const richOpen: RichShot[] = [];
   const richKick: RichShot[] = [];
   const roster: RosterRow[] = [];
+  const appeared = new Set<number>();
 
   for (const e of events) {
+    for (const p of e.tactics?.lineup ?? []) appeared.add(p.player.id);
+    if (e.substitution) appeared.add(e.substitution.replacement.id);
     if (e.position && e.location) {
       const y = e.location[1];
       if (y !== undefined && e.position.name === 'Right Wing') {
@@ -311,7 +318,7 @@ export function buildMatch(
     file,
     stage: stageName(raw),
     ownGoals,
-    rich: { shots: [...richOpen, ...richKick], roster },
+    rich: { shots: [...richOpen, ...richKick], roster, appeared: [...appeared] },
   };
 }
 

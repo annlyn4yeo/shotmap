@@ -239,12 +239,16 @@
   margin-block: 0 var(--space-3);
 }
 
-/* The map in words, under the key and the chips: a paragraph of its own, set to the left to be read. */
+.seasons-note {
+  margin-top: var(--space-3);
+}
+
 .player-zones {
   max-width: 40rem;
   margin: var(--space-5) auto 0;
 }
 
+/* The map in words, under the key and the chips: a paragraph of its own, set to the left to be read. */
 .player-summary {
   margin-top: var(--space-3);
   text-align: left;

@@ -35,5 +35,7 @@ export interface MatchRecord {
     shots: RichShot[];
     /** In order of each player's first shot, which is the static file's `players` order. */
     roster: RosterRow[];
+    /** Everyone who played: both starting elevens and whoever came on, shot or not. */
+    appeared: number[];
   };
 }

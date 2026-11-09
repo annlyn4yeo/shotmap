@@ -426,10 +426,12 @@ export async function exportPlayer(db: Db, id: number): Promise<Player | undefin
   const [who = [], totals = [], teams = [], seasons = []] = await db.batch([
     { sql: 'SELECT id, name, full_name FROM players WHERE id = ?', params: [id] },
     {
-      sql: `SELECT COUNT(DISTINCT match_id) AS matches, COUNT(*) AS shots, COALESCE(SUM(outcome_group = 0), 0) AS goals,
+      // Matches are appearances, from player_seasons: the shots table knows only the matches a player shot in.
+      sql: `SELECT (SELECT COALESCE(SUM(matches), 0) FROM player_seasons WHERE player_id = ?) AS matches,
+                   COUNT(*) AS shots, COALESCE(SUM(outcome_group = 0), 0) AS goals,
                    COALESCE(SUM(outcome_group IN (0, 1)), 0) AS onTarget, COALESCE(SUM(xg), 0) AS xg
             FROM shots WHERE player_id = ? AND period <= 4`,
-      params: [id],
+      params: [id, id],
     },
     {
       sql: `SELECT t.id, t.name, COUNT(*) AS shots FROM shots s JOIN teams t ON t.id = s.team_id
@@ -439,13 +441,14 @@ export async function exportPlayer(db: Db, id: number): Promise<Player | undefin
     {
       // One row per competition season the player shot in, oldest first.
       sql: `SELECT c.id AS cid, c.name AS cname, se.id AS sid, se.name AS sname,
-                   COUNT(DISTINCT s.match_id) AS matches, COUNT(*) AS shots,
+                   ps.matches AS matches, COUNT(*) AS shots,
                    COALESCE(SUM(s.outcome_group = 0), 0) AS goals,
                    COALESCE(SUM(s.outcome_group IN (0, 1)), 0) AS onTarget,
                    COALESCE(SUM(s.xg), 0) AS xg, MIN(m.date) AS first
             FROM shots s JOIN matches m ON m.id = s.match_id
             JOIN competitions c ON c.id = m.competition_id
             JOIN seasons se ON se.competition_id = m.competition_id AND se.id = m.season_id
+            JOIN player_seasons ps ON ps.player_id = s.player_id AND ps.competition_id = m.competition_id AND ps.season_id = m.season_id
             WHERE s.player_id = ? AND s.period <= 4
             GROUP BY m.competition_id, m.season_id ORDER BY first, c.name LIMIT ${LIMITS.metaRowsMax}`,
       params: [id],

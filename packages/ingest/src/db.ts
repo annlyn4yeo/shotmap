@@ -103,6 +103,17 @@ CREATE TABLE match_players (
   PRIMARY KEY (match_id, player_id)
 ) WITHOUT ROWID;
 
+-- The matches a player appeared in, per competition season they shot in: started or came on, shot or
+-- not. The shots table cannot say: it only knows the matches a player shot in.
+CREATE TABLE player_seasons (
+  player_id INTEGER NOT NULL REFERENCES players(id),
+  competition_id INTEGER NOT NULL,
+  season_id INTEGER NOT NULL,
+  matches INTEGER NOT NULL CHECK (matches > 0),
+  PRIMARY KEY (player_id, competition_id, season_id),
+  FOREIGN KEY (competition_id, season_id) REFERENCES seasons(competition_id, id)
+) WITHOUT ROWID;
+
 CREATE TABLE shots (
   id INTEGER PRIMARY KEY,
   match_id INTEGER NOT NULL REFERENCES matches(id),
@@ -332,6 +343,9 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
     pattern: idsOf('playPattern'),
   };
 
+  const appearances = new Map<string, number>();
+  const shotSeasons = new Set<string>();
+
   for (const m of matches) {
     const { meta } = m.file;
     const [home, away] = meta.teams;
@@ -364,6 +378,12 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
 
     const columns = [m.file.shots, ...(m.file.shootout ? [m.file.shootout] : [])];
     const firstSeq = new Map<number, number>();
+    const seasonKey = (player: number) =>
+      `${player}|${meta.competition.id}|${meta.season.id}`;
+    for (const player of m.rich.appeared) {
+      const key = seasonKey(player);
+      appearances.set(key, (appearances.get(key) ?? 0) + 1);
+    }
     let seq = 0;
     for (const cols of columns) {
       for (let i = 0; i < cols.x.length; i++, seq++) {
@@ -389,6 +409,7 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
             `match ${meta.id}: play pattern id ${rich.playPattern} is not in ENUMS`,
           );
         if (!firstSeq.has(rich.playerId)) firstSeq.set(rich.playerId, seq);
+        if ((cols.per[i] as number) <= 4) shotSeasons.add(seasonKey(rich.playerId));
         addShot(
           shotIdOf(meta.id, seq),
           meta.id,
@@ -426,6 +447,18 @@ export function writeDatabase(path: string, input: DbInput): DbSummary {
         r.shirt,
         firstSeq.get(r.playerId) ?? -1,
       );
+  }
+
+  // Only the seasons a player has a row for, so a career's total is the sum of the rows shown.
+  const addPlayerSeason = insert('player_seasons', [
+    'player_id',
+    'competition_id',
+    'season_id',
+    'matches',
+  ]);
+  for (const key of [...shotSeasons].sort()) {
+    const [player = 0, competition = 0, season = 0] = key.split('|').map(Number);
+    addPlayerSeason(player, competition, season, appearances.get(key) ?? 0);
   }
 
   // The release names the data twice: when it was cut, and a hash of what is in it (the same

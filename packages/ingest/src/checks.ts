@@ -285,6 +285,15 @@ export function checkDatabase(
         `match ${String(r.match_id)}: player ${String(r.player_id)} is listed and never shot`,
     ),
     ...listed(
+      `SELECT s.player_id, m.competition_id AS c, m.season_id AS se, COUNT(DISTINCT s.match_id) AS shot_in, ps.matches AS played
+       FROM shots s JOIN matches m ON m.id = s.match_id
+       LEFT JOIN player_seasons ps ON ps.player_id = s.player_id AND ps.competition_id = m.competition_id AND ps.season_id = m.season_id
+       WHERE s.period <= 4 GROUP BY s.player_id, m.competition_id, m.season_id
+       HAVING ps.matches IS NULL OR ps.matches < shot_in`,
+      (r) =>
+        `player ${String(r.player_id)} shot in ${String(r.shot_in)} matches of ${String(r.c)}/${String(r.se)} and appeared in ${String(r.played)}`,
+    ),
+    ...listed(
       `SELECT m.id FROM matches m WHERE NOT EXISTS (SELECT 1 FROM shots s WHERE s.match_id = m.id)`,
       (r) => `match ${String(r.id)} has no shots`,
     ),
