@@ -176,14 +176,10 @@ export interface DumpSummary {
   largestStatement: number;
 }
 
-export function writeDump(
-  dbPath: string,
-  outPath: string,
-  options: DumpOptions = {},
-): DumpSummary {
+export function writeDump(dbPath: string, outPath: string): DumpSummary {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
-    const statements = buildDump(db, options);
+    const statements = buildDump(db);
     const text = `${statements.join('\n')}\n`;
     writeFileSync(outPath, text);
     return {

@@ -16,7 +16,7 @@ export const delayFor = (min: number) =>
  * shown from just behind the deepest shot, in steps of 10 yards. Panels that share a crop
  * compare directly.
  */
-export function cropFrom(shots: readonly Shot[]): number {
+function cropFrom(shots: readonly Shot[]): number {
   const xs = shots.filter((s) => !s.shootout && s.x >= HALFWAY).map((s) => s.x);
   const deepest = xs.length ? Math.min(...xs) : HALFWAY;
   return Math.min(100, Math.max(HALFWAY, Math.floor((deepest - 3) / 10) * 10));

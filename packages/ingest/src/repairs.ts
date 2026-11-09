@@ -14,7 +14,7 @@ import type { MatchRecord } from './rich';
  * 120 (363 goals), 119 (147), 118 (25) or 117 (4): a goal crosses the line, so it ends at x = 120,
  * and the record is up to three yards short of it. In the 3,766 other matches no goal ends short.
  */
-export const LOW_RESOLUTION = {
+const LOW_RESOLUTION = {
   /** Fewer shots than this and "every shot is a whole number" proves nothing. */
   minShots: 5,
   /** A goal ending at x in [from, to) is repaired; one ending further out is left, and fails the check. */

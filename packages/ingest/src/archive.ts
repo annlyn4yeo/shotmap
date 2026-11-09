@@ -14,7 +14,7 @@ import { planDump, cutIntoParts } from './dump';
  * The most rows a part writes: the Free plan's 100,000 a day, less room for anything else that day
  * (a deploy's own writes, a retried part). A release that writes more is loaded a part a day.
  */
-export const PART_BUDGET = 90_000;
+const PART_BUDGET = 90_000;
 
 export interface RowsWritten {
   /** Rows in the tables. */

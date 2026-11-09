@@ -76,7 +76,7 @@ export interface RawLineupTeam {
 
 // Normalising
 
-export const r1 = (n: number) => Math.round(n * 10) / 10;
+const r1 = (n: number) => Math.round(n * 10) / 10;
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 const emptyColumns = (): ShotColumns => ({

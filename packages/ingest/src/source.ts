@@ -32,7 +32,7 @@ export interface Politeness {
   backoffMs: number;
 }
 
-export const POLITE: Politeness = {
+const POLITE: Politeness = {
   concurrency: 3,
   ratePerSecond: 4,
   retries: 6,
@@ -75,7 +75,6 @@ export interface SourceOptions {
   politeness?: Partial<Politeness>;
   /** Blob hashes by path (relative to `data/`), to verify downloads against. */
   tree?: Map<string, TreeEntry>;
-  userAgent?: string;
   log?: (line: string) => void;
 }
 
@@ -97,8 +96,6 @@ export interface Source {
 export function createSource(options: SourceOptions): Source {
   const politeness = { ...POLITE, ...options.politeness };
   const log = options.log ?? ((line: string) => console.warn(line));
-  const userAgent =
-    options.userAgent ?? 'shotmap-ingest (+https://github.com/annlyn4yeo/shotmap)';
   const stats: Stats = {
     fetched: 0,
     cached: 0,
@@ -140,7 +137,9 @@ export function createSource(options: SourceOptions): Source {
       try {
         await turn();
         const res = await fetch(url, {
-          headers: { 'user-agent': userAgent },
+          headers: {
+            'user-agent': 'shotmap-ingest (+https://github.com/annlyn4yeo/shotmap)',
+          },
           signal: AbortSignal.timeout(politeness.timeoutMs),
         });
         if (res.ok) {

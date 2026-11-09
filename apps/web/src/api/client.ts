@@ -208,9 +208,6 @@ export function createApiClient(options: ApiClientOptions = {}) {
     setRelease(value: string): void {
       if (RELEASE_PATTERN.test(value)) release = value;
     },
-    clear(): void {
-      lru.clear();
-    },
   };
 }
 

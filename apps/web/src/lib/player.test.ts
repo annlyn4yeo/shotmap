@@ -1,4 +1,3 @@
-import type { Player } from '@shotmap/schema';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_VIEW,
@@ -9,7 +8,6 @@ import {
   playerUrl,
   rendererFor,
   selectedSeason,
-  shotsIn,
   sortSeasons,
   type SeasonRow,
 } from './player';
@@ -36,14 +34,6 @@ const SEASONS: SeasonRow[] = [
   row(55, 'UEFA Euro', 282, '2024', [5, 20, 3, 9, 2.5]),
   row(43, 'FIFA World Cup', 106, '2022', [7, 32, 7, 17, 8.9]),
 ];
-const PROFILE: Player = {
-  id: 5503,
-  name: 'Lionel Messi',
-  fullName: 'Lionel Andrés Messi Cuccittini',
-  teams: [],
-  totals: { matches: 46, shots: 223, goals: 46, onTarget: 112, xg: 34.5 },
-  seasons: SEASONS,
-};
 
 describe('the player page in the URL', () => {
   it('is just the path for the defaults', () => {
@@ -211,12 +201,10 @@ describe('the season table in order', () => {
 });
 
 describe('choosing a season', () => {
-  it('finds the selected row, and counts its shots, or the career when none is selected', () => {
+  it('finds the selected row, or none when none is selected', () => {
     const view = { ...DEFAULT_VIEW, competition: 43, season: 106 };
     expect(selectedSeason(SEASONS, view)?.season.name).toBe('2022');
-    expect(shotsIn(PROFILE, view)).toBe(32);
     expect(selectedSeason(SEASONS, DEFAULT_VIEW)).toBeUndefined();
-    expect(shotsIn(PROFILE, DEFAULT_VIEW)).toBe(223);
     expect(
       selectedSeason(SEASONS, { ...DEFAULT_VIEW, competition: 43, season: 999 }),
     ).toBeUndefined();

@@ -9,10 +9,8 @@
  */
 export const releaseDate = '2026-10-31';
 
-export function releaseDateOf(
-  env: Record<string, string | undefined> = process.env,
-): string {
-  const date = env.RELEASE_DATE ?? releaseDate;
+export function releaseDateOf(): string {
+  const date = process.env.RELEASE_DATE ?? releaseDate;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
     throw new Error(`RELEASE_DATE is not a date: ${date}`);
   return date;

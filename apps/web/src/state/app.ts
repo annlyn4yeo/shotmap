@@ -43,7 +43,7 @@ export const store = createStore<AppState>({
 });
 
 /** The match the route points at: its own, or the hero. */
-export const matchIdOf = (state: AppState): number => state.route.m ?? HERO_MATCH_ID;
+const matchIdOf = (state: AppState): number => state.route.m ?? HERO_MATCH_ID;
 
 // Loading
 

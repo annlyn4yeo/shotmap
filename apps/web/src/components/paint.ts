@@ -174,7 +174,7 @@ export interface Brush {
 }
 
 /** Many marks' paths as one path. */
-export function joinPaths(paths: readonly Path2D[]): Path2D {
+function joinPaths(paths: readonly Path2D[]): Path2D {
   const all = new Path2D();
   for (const p of paths) all.addPath(p);
   return all;

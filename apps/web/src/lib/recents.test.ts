@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAX_RECENTS, forgetSearches, loadRecents, rememberSearch } from './recents';
+import { MAX_RECENTS, loadRecents, rememberSearch } from './recents';
 
 /** localStorage as a Map, so a test can look inside it. */
 function storage(initial: Record<string, string> = {}) {
@@ -8,7 +8,6 @@ function storage(initial: Record<string, string> = {}) {
     data,
     getItem: (k: string) => data.get(k) ?? null,
     setItem: (k: string, v: string) => void data.set(k, v),
-    removeItem: (k: string) => void data.delete(k),
   };
 }
 const KEY = 'shotmap:recent-searches';
@@ -51,12 +50,6 @@ describe('recent searches', () => {
       expect(loadRecents()).toEqual([]);
     });
 
-    it('forgets on request', () => {
-      rememberSearch('messi');
-      forgetSearches();
-      expect(loadRecents()).toEqual([]);
-    });
-
     it('survives a stored list that is not one', () => {
       for (const bad of ['not json', '{"a":1}', '[1,2,{"x":1}]', '[""]']) {
         store.data.set(KEY, bad);
@@ -76,13 +69,9 @@ describe('recent searches', () => {
         setItem: () => {
           throw new Error('blocked');
         },
-        removeItem: () => {
-          throw new Error('blocked');
-        },
       });
       expect(loadRecents()).toEqual([]);
       expect(rememberSearch('messi')).toEqual(['messi']);
-      expect(() => forgetSearches()).not.toThrow();
     });
 
     it('works when there is no localStorage at all', () => {
