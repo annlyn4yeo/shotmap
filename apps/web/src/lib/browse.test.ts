@@ -7,8 +7,46 @@ import {
   formatBrowse,
   opensGroup,
   parseBrowse,
+  tallyOf,
 } from './browse';
 import { WINDOW_FROM, windowOf } from './windowing';
+
+describe('how many matches the choice holds', () => {
+  const meta = {
+    counts: { matches: 1205, shots: 1, players: 1, teams: 1 },
+    competitions: [
+      {
+        id: 11,
+        name: 'La Liga',
+        seasons: [
+          { id: 27, name: '2015/2016', matches: 380 },
+          { id: 4, name: '2018/2019', matches: 34 },
+        ],
+      },
+    ],
+  };
+  const of = (change: Partial<typeof EMPTY_BROWSE>) =>
+    tallyOf({ ...EMPTY_BROWSE, ...change }, meta);
+
+  it('is the release, a competition or one season', () => {
+    expect(of({})).toEqual({ value: 1205, label: 'Every competition' });
+    expect(of({ competition: 11 })).toEqual({ value: 414, label: 'La Liga' });
+    expect(of({ competition: 11, season: 4 })).toEqual({
+      value: 34,
+      label: 'La Liga 2018/2019',
+    });
+  });
+
+  it('says nothing it cannot count, or before it knows', () => {
+    expect(of({ competition: 11, stage: 3 })).toBeNull();
+    expect(of({ team: 217 })).toBeNull();
+    expect(of({ from: '2020-01-01' })).toBeNull();
+    expect(of({ to: '2020-01-01' })).toBeNull();
+    expect(of({ competition: 99 })).toBeNull();
+    expect(of({ competition: 11, season: 99 })).toBeNull();
+    expect(tallyOf(EMPTY_BROWSE, null)).toBeNull();
+  });
+});
 
 describe('where the list draws a rule', () => {
   const match = (date: string, stage = 3, competition = 55, season = 282) => ({

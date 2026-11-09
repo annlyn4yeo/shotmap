@@ -1,3 +1,4 @@
+import type { Meta } from '@shotmap/schema';
 import { whole } from './route';
 
 /**
@@ -102,6 +103,32 @@ export function browseUrl(q: BrowseQuery, change: Partial<BrowseQuery> = {}): st
   if (change.competition !== undefined && change.competition !== q.competition)
     next.season = null;
   return `/matches${formatBrowse(next)}`;
+}
+
+type Catalogue = Pick<Meta, 'competitions' | 'counts'>;
+
+export const matchesIn = (c: Catalogue['competitions'][number]): number =>
+  c.seasons.reduce((n, s) => n + s.matches, 0);
+
+/**
+ * How many matches the choice holds, and its name. Only for what the release counts: nothing for
+ * a stage, a team or dates, which have no total, or for an id the release does not have.
+ */
+export function tallyOf(
+  q: BrowseQuery,
+  meta: Catalogue | null,
+): { value: number; label: string } | null {
+  if (!meta || q.stage !== null || q.team !== null || q.from !== null || q.to !== null)
+    return null;
+  if (q.competition === null)
+    return { value: meta.counts.matches, label: 'Every competition' };
+  const chosen = meta.competitions.find((c) => c.id === q.competition);
+  if (!chosen) return null;
+  if (q.season === null) return { value: matchesIn(chosen), label: chosen.name };
+  const season = chosen.seasons.find((s) => s.id === q.season);
+  return season
+    ? { value: season.matches, label: `${chosen.name} ${season.name}` }
+    : null;
 }
 
 interface Grouped {
