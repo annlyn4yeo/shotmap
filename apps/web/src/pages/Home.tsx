@@ -303,54 +303,91 @@ const DUEL_ROWS: readonly DuelRow[] = [
 const PLATE_FROM = 80;
 const PLATE_FRAME = frameFor('half', 'vertical', PLATE_FROM);
 
-/** One player's shots in the hero match, on the last 40 yards. A mark opens that shot. */
-function DuelPlate({ name, own }: { name: string; own: readonly Shot[] }) {
-  const frameRef = useRef<HTMLDivElement>(null);
-  const unitPx = (useWidth(frameRef) || 160) / PLATE_FRAME.w;
-  const open = useOpenShot(own);
-  const marks: MapShot[] = useMemo(
-    () =>
-      own.map((s) => ({
-        id: s.id,
-        outcome: s.outcome,
-        xg: s.xg,
-        label: shotLabel(s),
-        x: s.x,
-        y: s.y,
-        ex: s.ex,
-        ey: s.ey,
-        r: markRadius(s.xg, unitPx),
-        delay: 0,
-      })),
-    [own, unitPx],
-  );
-  return (
-    <figure class="duel-plate">
-      <figcaption class="duel-name">{name}</figcaption>
-      <div
-        ref={frameRef}
-        class="map-frame"
-        style={`--ratio:${PLATE_FRAME.w} / ${PLATE_FRAME.h}`}
-      >
-        <div class="map">
-          <Pitch title={`${name}'s shots in the final`} from={PLATE_FROM} />
-          <ShotLayer
-            frame={PLATE_FRAME}
-            shots={marks}
-            selectedId={null}
-            intro={false}
-            label={`${name}'s shots. Choose one to open it on the match page.`}
-            onSelect={open}
-          />
-        </div>
-      </div>
-    </figure>
+/** The match's minutes, and the ones the sheet marks: half time, full time, the turn of extra time. */
+const MINUTES = 120;
+const GUIDES = [45, 90, 105];
+const TICKS = [0, ...GUIDES, MINUTES];
+const atMinute = (min: number) => (Math.min(min, MINUTES) / MINUTES) * 100;
+/** Goals closer together than this share one label: their marks all but touch. */
+const SAME_MOMENT = 6;
+
+/** The minute over each goal, or over the first of a few that come together. */
+function goalMinutes(own: readonly Shot[]): Map<number, string> {
+  const groups: Shot[][] = [];
+  for (const goal of own
+    .filter((s) => s.outcome === 'goal')
+    .sort((x, y) => x.min - y.min)) {
+    const last = groups.at(-1);
+    const previous = last?.at(-1);
+    if (last && previous && goal.min - previous.min < SAME_MOMENT) last.push(goal);
+    else groups.push([goal]);
+  }
+  return new Map(
+    groups.flatMap((g) => {
+      const first = g[0];
+      return first ? [[first.id, g.map((s) => `${s.min}'`).join(', ')] as const] : [];
+    }),
   );
 }
 
+/** One player's side of the line: their name, and each shot at its minute, in the map's own marks. */
+function TimelineLane(props: {
+  name: string;
+  own: readonly Shot[];
+  side: 'above' | 'below';
+  unit: number;
+}) {
+  const minutes = goalMinutes(props.own);
+  const radius = (shot: Shot) => markRadius(shot.xg, props.unit) * props.unit;
+  // Of two marks that would land on each other, the smaller steps toward the line, so a small goal
+  // a minute after a big one is seen, not swallowed. One step: a match's marks rarely crowd further.
+  const steps = new Map<number, number>();
+  const byMinute = [...props.own].sort((x, y) => x.min - y.min);
+  byMinute.forEach((s, i) => {
+    const before = byMinute[i - 1];
+    if (!before || steps.has(before.id)) return;
+    const reach = radius(before) + radius(s);
+    if (((s.min - before.min) / MINUTES) * 100 * props.unit < reach)
+      steps.set((radius(s) < radius(before) ? s : before).id, reach + 2);
+  });
+  // Goals last, so one is never under a miss.
+  const ordered = [...props.own].sort(
+    (x, y) => Number(x.outcome === 'goal') - Number(y.outcome === 'goal'),
+  );
+  return (
+    <div class="tl-lane" data-side={props.side}>
+      <span class="tl-name">{props.name}</span>
+      {ordered.map((s) => {
+        const r = radius(s);
+        const when = minutes.get(s.id);
+        return (
+          <span
+            key={s.id}
+            class="tl-shot"
+            style={`--x:${atMinute(s.min)};--r:${r}px;--step:${steps.get(s.id) ?? 0}px;--d:${delayFor(s.min)}ms`}
+          >
+            <svg viewBox={`${-r} ${-r} ${2 * r} ${2 * r}`} focusable="false">
+              {/* A goal's hole shows the paper, not a mark that happens to lie under it. */}
+              {s.outcome === 'goal' ? <circle class="tl-hole" r={0.4 * r} /> : null}
+              <path class={`shot shot--${s.outcome}`} d={markPath(s.outcome, 0, 0, r)} />
+            </svg>
+            {when ? <span class="tl-when num">{when}</span> : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+const inWords = (name: string, own: readonly Shot[]) => {
+  const goals = [...goalMinutes(own).values()].join(', ');
+  return `${name}: ${own.length} shots${goals ? `, goals at ${goals}` : ''}.`;
+};
+
 /**
- * Two players in the hero match: where each shot from, on a pitch of their own, and their figures
- * under them, each pair close together so a row reads across, as the compare page sets them.
+ * Two players in the hero match. The plate beside it says where a player shoots from, so this one
+ * says when: the match as one line, one player above it and the other below, then their figures in
+ * a table on the same rule as the one beside it.
  */
 function Duel({ match, a, b }: { match: LoadedMatch; a: number; b: number }) {
   const name = (id: number) => match.detail.players.find((p) => p.id === id)?.name ?? '';
@@ -358,55 +395,90 @@ function Duel({ match, a, b }: { match: LoadedMatch; a: number; b: number }) {
     const shots = inPlay(match.shots);
     return [a, b].map((id) => shots.filter((s) => s.playerId === id)) as [Shot[], Shot[]];
   }, [match, a, b]);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const unit = (useWidth(frameRef) || 343) / 100;
+  const seen = useSeen(frameRef, 0.35);
+  const sides = [
+    { id: a, own: left },
+    { id: b, own: right },
+  ];
+  const goalsOf = (own: readonly Shot[]) =>
+    own.filter((s) => s.outcome === 'goal').length;
+  const [first, second] = goalsOf(left) >= goalsOf(right) ? sides : [...sides].reverse();
+
   return (
-    <div class="duel-sheet">
-      <div class="duel-plates">
-        <DuelPlate name={name(a)} own={left} />
-        <DuelPlate name={name(b)} own={right} />
+    <>
+      {first && second ? (
+        <p class="plate-claim">
+          {name(first.id)} scored {goalsOf(first.own)} from {first.own.length} shots.{' '}
+          {name(second.id)} scored {goalsOf(second.own)} from {second.own.length}.
+        </p>
+      ) : null}
+      <div
+        ref={frameRef}
+        class="map-frame timeline"
+        data-plot={seen ? 'in' : 'wait'}
+        role="img"
+        aria-label={`Their shots through the final, by the minute. ${inWords(name(a), left)} ${inWords(name(b), right)}`}
+      >
+        <div class="tl-plot">
+          {GUIDES.map((m) => (
+            <span key={m} class="tl-guide" style={`--x:${atMinute(m)}`} />
+          ))}
+          <TimelineLane name={name(a)} own={left} side="above" unit={unit} />
+          <div class="tl-axis">
+            {TICKS.map((m) => (
+              <span key={m} class="tl-tick num" style={`--x:${atMinute(m)}`}>
+                {m}&prime;
+              </span>
+            ))}
+          </div>
+          <TimelineLane name={name(b)} own={right} side="below" unit={unit} />
+        </div>
       </div>
-      <table class="duel">
+      <table class="zones duel">
         <caption class="visually-hidden">
-          {name(a)} and {name(b)} in the final. The higher figure of each pair is in bold.
+          {name(a)} and {name(b)} in the final. The higher figure in each column is in
+          bold.
         </caption>
-        <thead class="visually-hidden">
+        <thead>
           <tr>
-            <th scope="col">{name(a)}</th>
-            <td />
-            <th scope="col">{name(b)}</th>
+            <th scope="col">Player</th>
+            {DUEL_ROWS.map((row) => (
+              <th key={row.label} scope="col">
+                {row.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {DUEL_ROWS.map((row) => {
-            const [l, r] = [row.of(left), row.of(right)];
-            const [lt, rt] = [l, r].map((v) =>
-              v === null ? '' : v.toFixed(row.decimals),
-            );
-            // The lead is judged on the printed figures: two that read alike are never ranked.
-            const lead =
-              lt && rt && Number(lt) !== Number(rt)
-                ? Number(lt) > Number(rt)
-                  ? 0
-                  : 1
-                : -1;
+          {sides.map(({ id, own }) => {
+            const other = id === a ? right : left;
             return (
-              <tr key={row.label}>
-                <td class="duel-value num" data-lead={lead === 0 || undefined}>
-                  {lt}
-                  {lead === 0 ? <span class="visually-hidden"> (higher)</span> : null}
-                </td>
-                <th scope="row" class="duel-label">
-                  {row.label}
-                </th>
-                <td class="duel-value num" data-lead={lead === 1 || undefined}>
-                  {rt}
-                  {lead === 1 ? <span class="visually-hidden"> (higher)</span> : null}
-                </td>
+              <tr key={id}>
+                <th scope="row">{name(id)}</th>
+                {DUEL_ROWS.map((row) => {
+                  const mine = row.of(own)?.toFixed(row.decimals) ?? '';
+                  const theirs = row.of(other)?.toFixed(row.decimals) ?? '';
+                  // The lead is judged on the printed figures: two that read alike are never ranked.
+                  const lead = mine && theirs && Number(mine) > Number(theirs);
+                  return (
+                    <td
+                      key={row.label}
+                      class="duel-value num"
+                      data-lead={lead || undefined}
+                    >
+                      {mine}
+                      {lead ? <span class="visually-hidden"> (higher)</span> : null}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
         </tbody>
       </table>
-    </div>
+    </>
   );
 }
 
@@ -581,8 +653,8 @@ function Index({ match, meta }: { match: LoadedMatch; meta: Meta | 'error' | nul
         <article class="sheet sheet--compare">
           <h3 class="sheet-title">Two players on one sheet</h3>
           <p class="sheet-note">
-            Every shot they took in the {final}, then the figures. The higher of each pair
-            is in bold.
+            Every shot they took in the {final}, at the minute they took it, then the
+            figures. The higher of each is in bold.
           </p>
           <Duel match={match} a={MESSI} b={MBAPPE} />
           <a

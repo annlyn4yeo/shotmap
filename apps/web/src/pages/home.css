@@ -321,56 +321,138 @@
   margin-top: var(--space-2);
 }
 
-/* Two players: a pitch of each one's shots, and the figures close together under them. */
-.duel-sheet {
-  display: grid;
-  gap: var(--space-5);
-}
-
-.sheet > .duel-sheet {
-  margin-top: var(--space-4);
-}
-
-.duel-plates {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.duel-plate {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-}
-
-.duel-plate .map-frame {
+/*
+ * Two players: the match as one line, a player above it and a player below, each shot at its minute
+ * in the map's own marks. In the plates' neatline, on the paper of their pitch, with no pitch.
+ */
+.sheet > .timeline {
   width: calc(100% - 14px);
+  max-width: none;
+  min-height: 24rem;
+  margin: 7px;
+  background: var(--paper-2);
 }
 
-.duel-name {
-  font-size: var(--step--1);
+.tl-plot {
+  position: absolute;
+  inset: var(--space-3) var(--space-4);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+/* Half time, full time and the turn of extra time. */
+.tl-guide {
+  position: absolute;
+  inset-block: 0;
+  left: calc(var(--x) * 1%);
+  border-left: var(--hair) solid var(--line-3);
+}
+
+.tl-lane {
+  position: relative;
+}
+
+.tl-name {
+  position: absolute;
+  left: 0;
+  font-size: var(--step-1);
+  font-weight: var(--weight-black);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  background: var(--paper-2);
+}
+
+.tl-lane[data-side='above'] .tl-name {
+  top: 0;
+}
+
+.tl-lane[data-side='below'] .tl-name {
+  bottom: 0;
+}
+
+.tl-shot {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  width: calc(2 * var(--r));
+  height: calc(2 * var(--r));
+  margin: calc(-1 * var(--r));
+}
+
+.tl-lane[data-side='above'] .tl-shot {
+  top: calc(62% + var(--step));
+}
+
+.tl-lane[data-side='below'] .tl-shot {
+  top: calc(38% - var(--step));
+}
+
+.tl-shot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.tl-hole {
+  fill: var(--paper-2);
+}
+
+.tl-when {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.tl-lane[data-side='above'] .tl-when {
+  bottom: calc(100% + 6px);
+}
+
+.tl-lane[data-side='below'] .tl-when {
+  top: calc(100% + 6px);
+}
+
+.tl-axis {
+  position: relative;
+  height: 1.625rem;
+  border-top: var(--rule) solid var(--ink);
+}
+
+.tl-tick {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: 0;
+  padding-top: var(--space-1);
+  transform: translateX(-50%);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  white-space: nowrap;
+}
+
+/* The figures, in the table the cell beside it has, a row for each player. */
+.duel {
+  margin-top: var(--space-2);
+}
+
+.duel :is(th, td):first-child {
+  width: 28%;
+}
+
+.duel tbody tr:last-child > * {
+  border-top: 0;
+}
+
+.duel tbody th:first-child {
   font-weight: var(--weight-bold);
 }
 
-.duel {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.duel td:first-child {
-  text-align: right;
-}
-
-.duel td:last-child {
-  text-align: left;
-}
-
 .duel-value {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--step-3);
-  font-weight: var(--weight-regular);
+  font-size: var(--step-1);
   line-height: 1.15;
   letter-spacing: -0.02em;
 }
@@ -380,18 +462,6 @@
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
-}
-
-/* Wide enough for its longest name on one line, so a row's figures stay where the others are. */
-.duel-label {
-  width: 7.5rem;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--step--2);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
 }
 
 /* The competitions, each a way into the match list */
@@ -565,6 +635,15 @@
     animation: print var(--dur-slow) var(--ease-out) backwards;
   }
 
+  .map-frame[data-plot='wait'] .tl-when {
+    opacity: 0;
+  }
+
+  .map-frame[data-plot='in'] .tl-when {
+    animation: print var(--dur-base) var(--ease-out) backwards;
+    animation-delay: var(--d);
+  }
+
   .home .density .bin {
     animation: print var(--dur-base) var(--ease-out) backwards;
   }
@@ -643,12 +722,126 @@
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
 
+  /*
+   * Two cells in a row are as tall as the taller, so each shares out what the other's plate sets
+   * rather than leaving a hole: the figures and the competitions take the height, and a link keeps
+   * the bottom of its cell, on a line with the link beside it.
+   */
   .sheet {
+    display: flex;
+    flex-direction: column;
     padding: var(--space-7) var(--space-6);
+  }
+
+  .sheet > .sheet-link {
+    align-self: flex-start;
+    margin-top: auto;
+  }
+
+  /*
+   * The first row of cells shares one set of rows, so what stands side by side lines up: the titles,
+   * the sentences, the claims, the plate's top with the line's, and the rule over one table with the
+   * rule over the other. Eight rows: title, note, claim, map, caption, key, table, link. The line
+   * takes the map's, the caption's and the key's. (A browser without subgrid stacks each cell.)
+   */
+  .sheet--player,
+  .sheet--compare {
+    display: grid;
+    grid-row: 1 / span 8;
+    grid-template-rows: subgrid;
+    row-gap: var(--space-3);
+  }
+
+  .sheet--matches,
+  .sheet--density {
+    grid-row: 9;
+  }
+
+  .sheet--player > .plate {
+    display: contents;
+  }
+
+  .sheet > .timeline {
+    grid-row: span 3;
+    min-height: 0;
+  }
+
+  .tl-plot {
+    inset: var(--space-5) var(--space-6);
+  }
+
+  .tl-name {
+    font-size: var(--step-3);
+  }
+
+  .duel {
+    height: 100%;
+    margin-top: 0;
+  }
+
+  /* One line of heading, so the rule over this table is the rule over the other. */
+  .duel thead th {
+    white-space: nowrap;
+  }
+
+  .duel tbody th:first-child {
+    font-size: var(--step-0);
+  }
+
+  .duel-value {
+    font-size: var(--step-2);
+  }
+
+  .sheet > .comps {
+    display: grid;
+    flex: 1;
+    grid-auto-rows: 1fr;
+  }
+
+  .comp {
+    height: 100%;
+  }
+
+  .comp-name {
+    font-size: var(--step-2);
+  }
+
+  /* Its one line of words, not the three a phone needs. */
+  .density-caption.plate-caption--lazy {
+    min-height: calc(1.5em + var(--space-2));
   }
 
   .sheet + .sheet {
     border-top: 0;
+  }
+
+  /* The sections' own gap is the space under the last row. */
+  .sheet--matches,
+  .sheet--density {
+    padding-bottom: 0;
+  }
+
+  /* The sentence beside the title, so the figures have the whole width under them. */
+  .home-imprint {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--space-4);
+  }
+
+  .home-imprint > * {
+    grid-column: 1 / -1;
+  }
+
+  .home-imprint > .home-h2 {
+    grid-column: 1 / 8;
+    grid-row: 1;
+    align-self: end;
+  }
+
+  .home-imprint > .home-body {
+    grid-column: 8 / -1;
+    grid-row: 1;
+    align-self: end;
+    max-width: none;
   }
 
   .sheet--player,
@@ -672,5 +865,15 @@
   .sheet > .plate,
   .sheet > .map-frame {
     max-width: none;
+  }
+
+  .sheet--compare > .sheet-note {
+    max-width: 52ch;
+  }
+}
+
+@media (min-width: 80rem) {
+  .duel-value {
+    font-size: var(--step-3);
   }
 }
