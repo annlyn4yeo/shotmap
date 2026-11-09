@@ -4,6 +4,8 @@
   "name": "shotmap-api",
   "main": "src/worker.ts",
   "compatibility_date": "2026-10-01",
+  // Keep what the Worker logs: a failure is otherwise seen only by someone running `wrangler tail`.
+  "observability": { "enabled": true },
 
   // `wrangler dev` runs this binding against a local D1 (load it with `pnpm --filter @shotmap/api load`).
   // The ids below are placeholders until `wrangler d1 create` has been run for each environment.
