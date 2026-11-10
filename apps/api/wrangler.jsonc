@@ -42,7 +42,7 @@
     "production": {
       "name": "shotmap-api",
       // The one origin allowed to read this API from a browser: the web app on Vercel.
-      "vars": { "WEB_ORIGIN": "" },
+      "vars": { "WEB_ORIGIN": "https://shotmap-six.vercel.app" },
       "d1_databases": [
         // Shared with staging for now (read-only, and the Free plan cannot write a second copy in a
         // day): release 2026-11-09.909f9ba0bc80. Give production its own database before staging

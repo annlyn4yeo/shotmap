@@ -206,6 +206,9 @@ export function createApp(options: AppOptions = {}) {
       if (hit) {
         const copy = new Response(hit.body, hit);
         copy.headers.set('x-cache', 'HIT');
+        // From the Worker's settings, not the stored copy: a copy kept from before WEB_ORIGIN changed has the old one.
+        copy.headers.delete('access-control-allow-origin');
+        for (const [k, v] of Object.entries(cors(env))) copy.headers.set(k, v);
         return copy;
       }
 
