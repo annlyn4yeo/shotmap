@@ -41,8 +41,13 @@
     },
     "production": {
       "name": "shotmap-api",
+      // The one origin allowed to read this API from a browser: the web app on Vercel.
+      "vars": { "WEB_ORIGIN": "" },
       "d1_databases": [
-        { "binding": "DB", "database_name": "shotmap", "database_id": "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create" }
+        // Shared with staging for now (read-only, and the Free plan cannot write a second copy in a
+        // day): release 2026-11-09.909f9ba0bc80. Give production its own database before staging
+        // loads another release.
+        { "binding": "DB", "database_name": "shotmap-staging-appearances", "database_id": "c756dd64-19ef-434e-9a58-5dcbdad93997" }
       ]
       // "routes": [{ "pattern": "example.com/v1/*", "zone_name": "example.com" }]
     }
