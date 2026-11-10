@@ -24,14 +24,17 @@
       // browser: the Pages preview of the web app (a different origin from this Worker, so CORS).
       "vars": { "WEB_ORIGIN": "https://preview.shotmap.pages.dev" },
       "d1_databases": [
-        // The kept catalogue (release 2026-10-31.a7beb97358f2), loaded a part a day (the Free plan
-        // writes 100,000 rows a day, the catalogue is 137,980: two parts) and switched to on 2026-11-03.
-        { "binding": "DB", "database_name": "shotmap-staging-lite", "database_id": "b2bb7f65-d229-4845-87b7-ed378749b744" },
-        // The 149-match database staging served before: to undo the switch, give `DB` above this
-        // name and id and deploy again. The Worker does not use this binding; wrangler needs it here
-        // to address the database by name. (shotmap-staging-next, 7c2cc659-55a9-4b3c-86c1-6bae83f1f98a,
-        // held two of six parts of the whole source, abandoned when the catalogue was narrowed.)
-        { "binding": "DB_PREVIOUS", "database_name": "shotmap-staging", "database_id": "08d9f3ac-8ba7-414e-bbbf-7661f0634d97" }
+        // Release 2026-11-09.909f9ba0bc80 (true appearances, from player_seasons), loaded a part a day
+        // (141,565 rows: two parts) and switched to on 2026-11-10.
+        { "binding": "DB", "database_name": "shotmap-staging-appearances", "database_id": "c756dd64-19ef-434e-9a58-5dcbdad93997" },
+        // Release 2026-10-31.a7beb97358f2, which staging served before: to undo the switch, give `DB`
+        // above this name and id and deploy again (it has no player_seasons, so the player pages of
+        // the Worker on main answer 500 on it; roll the Worker back with it if they must work). The
+        // Worker does not use this binding; wrangler needs it here to address the database by name.
+        // Older, unused: shotmap-staging, 08d9f3ac-8ba7-414e-bbbf-7661f0634d97 (the 149 matches), and
+        // shotmap-staging-next, 7c2cc659-55a9-4b3c-86c1-6bae83f1f98a (two of six parts of the whole
+        // source, abandoned when the catalogue was narrowed).
+        { "binding": "DB_PREVIOUS", "database_name": "shotmap-staging-lite", "database_id": "b2bb7f65-d229-4845-87b7-ed378749b744" }
       ]
       // With a domain on Cloudflare (decision Q2, the default), route /v1/* on it so it is same-origin:
       // "routes": [{ "pattern": "staging.example.com/v1/*", "zone_name": "example.com" }]
